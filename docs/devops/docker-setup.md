@@ -9,6 +9,7 @@
 | `database`   | `mariadb:11.4`              | `localhost:3307`               | Base de données                        |
 | `phpmyadmin` | `phpmyadmin:5`              | http://localhost:8081          | Administration BDD                     |
 | `mailer`     | `axllent/mailpit`           | http://localhost:8025          | Capture des e-mails sortants           |
+| `node`       | `node:24-alpine`            | http://localhost:5173          | Front React (serveur de dev Vite)      |
 
 Identifiants BDD par défaut : `app` / `app`, base `instruments` (root : `root`).
 
@@ -35,17 +36,35 @@ Ensuite, à chaque démarrage, l'entrypoint :
 ```bash
 make sh                                  # shell dans le conteneur PHP
 make console c="make:entity Instrument"  # console Symfony
-make composer c="require symfony/ux-react"
+make composer c="require api"
 make db-reset                            # recrée la base + migrations
 make test                                # PHPUnit
 ```
+
+## Front-end React (Vite)
+
+L'application React se trouve dans `frontend/` (React 19, Vite, JavaScript/JSX).
+
+- En dev, ouvrir **http://localhost:5173** : rechargement à chaud (HMR) à chaque modification.
+- Les appels à `/api/*` sont relayés par le proxy Vite vers Symfony (nginx) : même origine, pas de CORS.
+  Dans le code React, appeler simplement `fetch('/api/...')`.
+- Point de contrôle : `GET /api/health` → `{"status":"ok","database":"ok"}`.
+- `node_modules` est installé automatiquement au démarrage du conteneur s'il est absent.
+
+```bash
+make npm c="install react-router"   # ajouter une dépendance
+make front-build                    # build de production → frontend/dist
+```
+
+En production, `frontend/dist` est un site statique à servir par le serveur web, les requêtes
+`/api` étant routées vers Symfony (configuration Plesk à définir dans `docs/devops/vps-preprod.md`).
 
 ## Variables surchargeables
 
 À définir dans l'environnement du shell ou dans `.env` (lu par Docker Compose) :
 
 `HTTP_PORT`, `DB_PORT`, `PMA_PORT`, `MAILPIT_PORT`, `MARIADB_DATABASE`, `MARIADB_USER`,
-`MARIADB_PASSWORD`, `MARIADB_ROOT_PASSWORD`, `XDEBUG_MODE`.
+`MARIADB_PASSWORD`, `MARIADB_ROOT_PASSWORD`, `XDEBUG_MODE`, `VITE_PORT`.
 
 `DATABASE_URL` et `MAILER_DSN` sont injectées par `compose.yaml` et priment sur le `.env` de Symfony.
 

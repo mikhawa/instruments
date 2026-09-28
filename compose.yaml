@@ -42,6 +42,23 @@ services:
     depends_on:
       - php
 
+  # Front-end React (serveur de développement Vite)
+  node:
+    image: node:24-alpine
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    command: sh -c "[ -d node_modules ] || npm install --no-audit --no-fund; npm run dev"
+    ports:
+      - "${VITE_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+    environment:
+      npm_config_cache: /tmp/.npm
+      VITE_API_PROXY_TARGET: http://nginx:80
+    depends_on:
+      - nginx
+
   # Base de données
   database:
     image: mariadb:11.4

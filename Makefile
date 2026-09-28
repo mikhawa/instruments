@@ -6,7 +6,7 @@ export UID := $(shell id -u)
 export GID := $(shell id -g)
 
 .DEFAULT_GOAL := help
-.PHONY: help build up down restart logs sh console composer db-reset test
+.PHONY: help build up down restart logs sh console composer db-reset test npm front-build
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -31,7 +31,7 @@ sh: ## Ouvre un shell dans le conteneur PHP
 console: ## Lance une commande Symfony (make console c="cache:clear")
 	$(CONSOLE) $(c)
 
-composer: ## Lance Composer (make composer c="require symfony/ux-react")
+composer: ## Lance Composer (make composer c="require api")
 	$(PHP) composer $(c)
 
 db-reset: ## Recrée la base et joue les migrations
@@ -41,3 +41,9 @@ db-reset: ## Recrée la base et joue les migrations
 
 test: ## Lance les tests PHPUnit
 	$(PHP) php bin/phpunit
+
+npm: ## Lance npm dans le front React (make npm c="install react-router")
+	$(DC) exec node npm $(c)
+
+front-build: ## Compile le front React pour la production (frontend/dist)
+	$(DC) run --rm --no-deps node npm run build

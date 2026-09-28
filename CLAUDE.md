@@ -30,7 +30,7 @@ Pour **toute tâche modifiant du code**, créer un fichier dans `.claude-tasks/`
 ## Contexte rapide
 - Architecture : MVC + couche Service + Repository pattern
 - Auth : Symfony Security (voters custom)
-- Frontend : React + ImportMap (JS côté client)
+- Frontend : React 19 + Vite (SPA dans `frontend/`) consommant l'API Symfony (`/api/*`) — AssetMapper/ImportMap réservé aux éventuelles pages Twig
 - Déploiement : GitHub Actions → SSH VPS
 
 ## Fichiers clés à connaître
