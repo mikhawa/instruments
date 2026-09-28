@@ -1,0 +1,16 @@
+.git
+.idea
+.claude
+.claude-tasks
+docs
+documentations-dev
+var
+vendor
+node_modules
+public/assets
+public/bundles
+.env.local
+.env.*.local
+compose*.yaml
+docker/nginx
+docker/mariadb
