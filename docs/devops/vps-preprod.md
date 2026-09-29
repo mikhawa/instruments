@@ -125,6 +125,8 @@ dans `DATABASE_URL` doivent être encodés (`@` → `%40`, `#` → `%23`, etc.).
 
 ### 2.4 GitHub
 
+Liste détaillée et commandes : [`github-variables.md`](github-variables.md).
+
 **Settings → Environments** : créer `preprod` et `production`.
 
 | Nom | Type | Exemple |
