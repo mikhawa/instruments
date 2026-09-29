@@ -103,7 +103,7 @@
     },
     "require-dev": {
         "doctrine/doctrine-fixtures-bundle": "^4.3",
-        "phpunit/phpunit": "^12.5",
+        "phpunit/phpunit": "^12.5.37",
         "symfony/browser-kit": "7.4.*",
         "symfony/css-selector": "7.4.*",
         "symfony/debug-bundle": "7.4.*",
