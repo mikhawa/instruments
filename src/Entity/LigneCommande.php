@@ -79,6 +79,14 @@ class LigneCommande
         return (int) round($this->totalHt * $this->tauxTva / 10000);
     }
 
+    /**
+     * Ex. « 2 × Oud de Bagdad (CRD-OUD-0042) ».
+     */
+    public function __toString(): string
+    {
+        return sprintf('%d × %s (%s)', $this->quantite, $this->libelle, $this->reference);
+    }
+
     public function getId(): ?int
     {
         return $this->id;

@@ -1,0 +1,25 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+
+{% block page_title %}Tableau de bord{% endblock %}
+
+{% block main %}
+    <div class="row g-3">
+        {% set cartes = [
+            { titre: 'Instruments', valeur: nbInstruments, detail: nbInstrumentsPublies ~ ' publiés' },
+            { titre: 'Catégories', valeur: nbCategories, detail: null },
+            { titre: 'Stocks sous le seuil d\'alerte', valeur: nbStocksSousSeuil, detail: 'quantité disponible ≤ seuil' },
+            { titre: 'Commandes à traiter', valeur: nbCommandesATraiter, detail: 'payées ou en préparation' },
+        ] %}
+        {% for carte in cartes %}
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <p class="text-muted mb-1">{{ carte.titre }}</p>
+                        <p class="fs-2 fw-bold mb-0">{{ carte.valeur }}</p>
+                        {% if carte.detail %}<small class="text-muted">{{ carte.detail }}</small>{% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

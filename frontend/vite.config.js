@@ -17,6 +17,11 @@ export default defineConfig({
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true },
       '/uploads': { target: apiTarget, changeOrigin: true },
+      // Back-office EasyAdmin et ses assets. Host conservé : Symfony génère
+      // ses redirections (connexion, déconnexion) vers localhost:5173
+      // et la vérification CSRF compare l'en-tête Origin à ce Host.
+      '/admin': { target: apiTarget, changeOrigin: false },
+      '/bundles': { target: apiTarget, changeOrigin: false },
     },
   },
 })

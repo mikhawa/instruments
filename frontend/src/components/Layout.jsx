@@ -24,6 +24,12 @@ export default function Layout() {
                 {utilisateur.prenom} {utilisateur.nom}
                 {utilisateur.roles.includes('ROLE_ADMIN') && <span className="barre__role"> (administrateur)</span>}
               </span>
+              {/* Lien HTML classique : /admin est servi par Symfony (EasyAdmin), pas par React Router */}
+              {utilisateur.roles.includes('ROLE_ADMIN') && (
+                <a href="/admin" className="lien-bouton">
+                  Administration
+                </a>
+              )}
               <Form method="post" action="/deconnexion">
                 <button type="submit" className="lien-bouton">
                   Se déconnecter

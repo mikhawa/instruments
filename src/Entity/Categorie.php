@@ -79,6 +79,22 @@ class Categorie
         $this->instruments = new ArrayCollection();
     }
 
+    /**
+     * Nom français de la catégorie, ou de la première traduction disponible.
+     */
+    public function __toString(): string
+    {
+        return $this->getNom() ?? '#'.$this->id;
+    }
+
+    /**
+     * Nom dans la langue demandée, sinon première traduction disponible.
+     */
+    public function getNom(string $locale = 'fr'): ?string
+    {
+        return ($this->getTraduction($locale) ?? ($this->traductions->first() ?: null))?->getNom();
+    }
+
     public function getId(): ?int
     {
         return $this->id;

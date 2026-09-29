@@ -1,0 +1,15 @@
+# Libellés des énumérations (EtatInstrument, StatutCommande)
+etat_instrument:
+    neuf: Neuf
+    occasion: Occasion
+    ancien: Ancien
+    restaure: Restauré
+
+statut_commande:
+    en_attente_paiement: En attente de paiement
+    payee: Payée
+    en_preparation: En préparation
+    expediee: Expédiée
+    livree: Livrée
+    annulee: Annulée
+    retournee: Retournée

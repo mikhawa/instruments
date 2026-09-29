@@ -17,4 +17,16 @@ class StockRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Stock::class);
     }
+
+    /**
+     * Nombre d'instruments dont la quantité disponible est au niveau ou sous le seuil d'alerte.
+     */
+    public function compterSousSeuilAlerte(): int
+    {
+        return (int) $this->createQueryBuilder('s')
+            ->select('COUNT(s.id)')
+            ->where('s.quantite - s.quantiteReservee <= s.seuilAlerte')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

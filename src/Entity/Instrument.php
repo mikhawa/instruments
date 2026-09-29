@@ -175,6 +175,22 @@ class Instrument
         return $this->stock?->getQuantiteDisponible() ?? 0;
     }
 
+    /**
+     * Libellé du back-office : « RÉFÉRENCE — nom français ».
+     */
+    public function __toString(): string
+    {
+        return trim(sprintf('%s — %s', $this->reference, $this->getNom() ?? ''), ' —');
+    }
+
+    /**
+     * Nom dans la langue demandée, sinon première traduction disponible.
+     */
+    public function getNom(string $locale = 'fr'): ?string
+    {
+        return ($this->getTraduction($locale) ?? ($this->traductions->first() ?: null))?->getNom();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
