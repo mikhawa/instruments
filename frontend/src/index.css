@@ -7,9 +7,10 @@
   --encre: #1f2a4d;
   --encre-douce: #4d5675;
   --trait: rgb(31 42 77 / 0.16);
+  --trait-fort: rgb(31 42 77 / 0.45);
   --laiton: #8a6212;
   --dispo: #2f6b45;
-  --epuise: #7a7f8f;
+  --epuise: #6f7486;
 
   /* Teintes de famille : épicéa, roseau, peau */
   --cordes: #e6d8c1;
@@ -22,6 +23,7 @@
   --sans: 'Alegreya Sans', system-ui, sans-serif;
 
   --rayon: 6px;
+  --largeur: 76rem;
   --gouttiere: clamp(1rem, 4vw, 3rem);
 
   color-scheme: light;
@@ -34,6 +36,7 @@
     --encre: #e8eaf3;
     --encre-douce: #b3b9cf;
     --trait: rgb(232 234 243 / 0.14);
+    --trait-fort: rgb(232 234 243 / 0.45);
     --laiton: #e0b75a;
     --dispo: #8fd0a4;
     --epuise: #9097ab;
@@ -65,8 +68,14 @@ body {
 
 h1,
 h2,
-p {
+p,
+dl,
+dd {
   margin: 0;
+}
+
+a {
+  color: inherit;
 }
 
 :focus-visible {
@@ -75,23 +84,67 @@ p {
 }
 
 /* ------------------------------------------------------------------
-   En-tête
+   Gabarit
    ------------------------------------------------------------------ */
-.entete {
-  max-width: 76rem;
+.barre {
+  max-width: var(--largeur);
   margin: 0 auto;
-  padding: clamp(2.5rem, 7vw, 5rem) var(--gouttiere) clamp(1.5rem, 4vw, 2.5rem);
+  padding: 1.25rem var(--gouttiere) 0;
 }
 
-.entete__marque {
+.barre__marque {
   font-family: var(--sans);
   font-weight: 700;
-  font-size: 1rem;
   color: var(--laiton);
-  margin-bottom: 1.25rem;
+  text-decoration: none;
 }
 
-.entete__titre {
+.barre__marque:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* Page en cours de remplacement pendant une navigation */
+.page[aria-busy='true'] {
+  opacity: 0.6;
+  transition: opacity 0.2s 0.15s;
+}
+
+.catalogue,
+.fiche,
+.erreur {
+  max-width: var(--largeur);
+  margin: 0 auto;
+  padding: 0 var(--gouttiere) 4rem;
+}
+
+.lien-retour {
+  display: inline-block;
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--encre-douce);
+  text-decoration: none;
+  padding: 0.25rem 0;
+}
+
+.lien-retour::before {
+  content: '← ';
+}
+
+.lien-retour:hover {
+  color: var(--encre);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* ------------------------------------------------------------------
+   Catalogue
+   ------------------------------------------------------------------ */
+.introduction {
+  padding: clamp(2rem, 6vw, 4rem) 0 clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.introduction__titre {
   font-weight: 700;
   font-size: clamp(2rem, 5.2vw, 3.6rem);
   line-height: 1.08;
@@ -100,20 +153,11 @@ p {
   text-wrap: balance;
 }
 
-.entete__intro {
+.introduction__texte {
   margin-top: 1.25rem;
   max-width: 56ch;
   font-size: clamp(1.05rem, 1.6vw, 1.25rem);
   color: var(--encre-douce);
-}
-
-/* ------------------------------------------------------------------
-   Catalogue et grille responsive
-   ------------------------------------------------------------------ */
-.catalogue {
-  max-width: 76rem;
-  margin: 0 auto;
-  padding: 0 var(--gouttiere) 4rem;
 }
 
 .catalogue__compte {
@@ -125,9 +169,6 @@ p {
 }
 
 .catalogue__message {
-  display: grid;
-  gap: 1rem;
-  justify-items: start;
   padding: 2rem 0;
   max-width: 56ch;
 }
@@ -139,41 +180,30 @@ p {
 }
 
 /* ------------------------------------------------------------------
-   Vignette
+   Plaque : photo, ou motif de famille + origine
    ------------------------------------------------------------------ */
-.vignette {
-  --teinte: var(--autre);
-
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--trait);
-  border-radius: var(--rayon);
-  overflow: hidden;
-}
-
-.vignette--cordes {
+.famille--cordes {
   --teinte: var(--cordes);
 }
 
-.vignette--vents {
+.famille--vents {
   --teinte: var(--vents);
 }
 
-.vignette--percussions {
+.famille--percussions {
   --teinte: var(--percussions);
 }
 
-/* Plaque : photo, ou motif de famille + origine */
-.vignette__plaque {
+.plaque {
   position: relative;
   aspect-ratio: 16 / 9;
-  background-color: var(--teinte);
+  background-color: var(--teinte, var(--autre));
   display: flex;
   align-items: flex-end;
+  overflow: hidden;
 }
 
-.vignette__plaque img {
+.plaque img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -182,19 +212,15 @@ p {
 }
 
 /* Cordes : faisceau de cordes tendues */
-.vignette--cordes .vignette__plaque {
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent 0 17px,
-    var(--motif) 17px 18px
-  );
+.famille--cordes .plaque {
+  background-image: repeating-linear-gradient(90deg, transparent 0 17px, var(--motif) 17px 18px);
   background-size: 60% 100%;
   background-position: center;
   background-repeat: no-repeat;
 }
 
 /* Vents : rangée de trous de jeu */
-.vignette--vents .vignette__plaque {
+.famille--vents .plaque {
   background-image: radial-gradient(circle, var(--motif) 0 6px, transparent 7px);
   background-size: 34px 34px;
   background-position: center 38%;
@@ -202,20 +228,37 @@ p {
 }
 
 /* Percussions : peau et cercles concentriques */
-.vignette--percussions .vignette__plaque {
-  background-image: repeating-radial-gradient(
-    circle at 50% 40%,
-    transparent 0 22px,
-    var(--motif) 22px 23px
-  );
+.famille--percussions .plaque {
+  background-image: repeating-radial-gradient(circle at 50% 40%, transparent 0 22px, var(--motif) 22px 23px);
 }
 
-.vignette__origine {
+.plaque__origine {
   position: relative;
   padding: 0.6rem 1rem;
   font-style: italic;
   font-size: 0.95rem;
-  color: var(--encre);
+}
+
+/* ------------------------------------------------------------------
+   Vignette (lien étendu à toute la surface)
+   ------------------------------------------------------------------ */
+.vignette {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  overflow: hidden;
+}
+
+.vignette:hover {
+  border-color: var(--trait-fort);
+}
+
+.vignette:has(.vignette__lien:focus-visible) {
+  outline: 3px solid var(--laiton);
+  outline-offset: 3px;
 }
 
 .vignette__corps {
@@ -237,6 +280,26 @@ p {
   font-weight: 700;
   line-height: 1.2;
   text-wrap: balance;
+}
+
+.vignette__lien {
+  text-decoration: none;
+}
+
+.vignette__lien:focus-visible {
+  outline: none;
+}
+
+.vignette__lien::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.vignette:hover .vignette__lien {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
 }
 
 .vignette__etat {
@@ -277,32 +340,198 @@ p {
   color: var(--encre-douce);
 }
 
-.vignette__stock {
+.vignette:has(.stock--epuise) .vignette__prix {
+  color: var(--epuise);
+}
+
+.vignette--attente {
+  min-height: 22rem;
+  background: linear-gradient(var(--autre) 0 42%, var(--surface) 42%);
+}
+
+/* Disponibilité (vignette et fiche) */
+.stock {
+  font-family: var(--sans);
   font-size: 0.95rem;
   font-weight: 500;
 }
 
-.vignette__stock--dispo {
+.stock--dispo {
   color: var(--dispo);
 }
 
-.vignette__stock--dernier {
+.stock--dernier {
   color: var(--laiton);
 }
 
-.vignette__stock--epuise {
+.stock--epuise {
   color: var(--epuise);
 }
 
-/* Instrument épuisé : visible mais en retrait */
-.vignette:has(.vignette__stock--epuise) .vignette__prix {
+/* ------------------------------------------------------------------
+   Fiche instrument
+   ------------------------------------------------------------------ */
+.fiche > .lien-retour {
+  margin: clamp(1.25rem, 3vw, 2rem) 0 1.25rem;
+}
+
+.fiche__haut,
+.fiche__bas {
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+}
+
+@media (min-width: 52rem) {
+  .fiche__haut {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .fiche__bas {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.fiche__plaque {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--rayon);
+}
+
+.fiche__plaque .plaque__origine {
+  font-size: 1.1rem;
+  padding: 1rem 1.25rem;
+}
+
+.fiche__resume {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.fiche__categorie {
+  font-family: var(--sans);
+  color: var(--encre-douce);
+}
+
+.fiche__nom {
+  font-weight: 700;
+  font-size: clamp(2.1rem, 4.6vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.fiche__etat {
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--laiton);
+}
+
+.fiche__accroche {
+  font-size: 1.2rem;
+  color: var(--encre-douce);
+  max-width: 44ch;
+}
+
+.fiche__achat {
+  margin-top: 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--trait);
+  display: grid;
+  gap: 0.2rem;
+}
+
+.fiche__prix {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(1.8rem, 3.4vw, 2.3rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.fiche:has(.fiche__achat .stock--epuise) .fiche__prix {
   color: var(--epuise);
 }
 
-/* Emplacement réservé pendant le chargement */
-.vignette--attente {
-  min-height: 22rem;
-  background: linear-gradient(var(--autre) 0 42%, var(--surface) 42%);
+.fiche__taxes {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  color: var(--encre-douce);
+  margin-bottom: 0.5rem;
+}
+
+.fiche__achat .stock {
+  font-size: 1.05rem;
+}
+
+.fiche__bas {
+  margin-top: clamp(2.5rem, 6vw, 4rem);
+  padding-top: clamp(1.5rem, 4vw, 2.5rem);
+  border-top: 1px solid var(--trait);
+}
+
+.fiche__texte {
+  display: grid;
+  gap: 2rem;
+  max-width: 62ch;
+  font-size: 1.125rem;
+  line-height: 1.65;
+}
+
+.fiche__intertitre {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.6rem;
+}
+
+.fiche__histoire {
+  padding-left: 1.25rem;
+  border-left: 3px solid var(--laiton);
+}
+
+.fiche__technique .fiche__intertitre {
+  font-family: var(--sans);
+  font-size: 1.15rem;
+}
+
+.fiche__ligne {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 38%) 1fr;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--trait);
+}
+
+.fiche__ligne dt {
+  font-family: var(--sans);
+  color: var(--encre-douce);
+}
+
+/* ------------------------------------------------------------------
+   Erreur
+   ------------------------------------------------------------------ */
+.erreur {
+  padding-top: clamp(2rem, 6vw, 4rem);
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+}
+
+.erreur__titre {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  line-height: 1.1;
+}
+
+.erreur p {
+  max-width: 56ch;
+}
+
+.erreur__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
 }
 
 /* ------------------------------------------------------------------
@@ -316,4 +545,10 @@ p {
   border-radius: var(--rayon);
   padding: 0.6rem 1.2rem;
   cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page[aria-busy='true'] {
+    transition: none;
+  }
 }

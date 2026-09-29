@@ -65,3 +65,46 @@ export function disponibilite(instrument) {
 
   return { texte: `${quantite} en stock`, niveau: 'dispo' }
 }
+
+/**
+ * Famille racine de l'instrument (slug fr : cordes, vents, percussions), pour le motif de la plaque.
+ */
+export function familleInstrument(instrument) {
+  const categorie = instrument.categorie
+  const racine = categorie?.parent ?? categorie
+
+  return racine ? (traduction(racine, 'fr').slug ?? null) : null
+}
+
+/**
+ * Origine lisible : « Anatolie, Turquie ».
+ */
+export function origineInstrument(instrument, locale = LOCALE_PAR_DEFAUT) {
+  return [instrument.regionOrigine, nomPays(instrument.paysOrigine, locale)].filter(Boolean).join(', ')
+}
+
+/**
+ * URL de la fiche : /instruments/1-oud-turc (l'identifiant sert à l'API, le slug à la lisibilité).
+ */
+export function cheminInstrument(instrument, locale = LOCALE_PAR_DEFAUT) {
+  const slug = traduction(instrument, locale).slug
+
+  return `/instruments/${instrument.id}${slug ? `-${slug}` : ''}`
+}
+
+/**
+ * Taux de TVA en points de base → « 21 % ».
+ */
+export function formaterTauxTva(pointsDeBase, locale = LOCALE_PAR_DEFAUT) {
+  return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(pointsDeBase / 10000)
+}
+
+/**
+ * Poids en grammes → « 1,8 kg » ou « 250 g ».
+ */
+export function formaterPoids(grammes, locale = LOCALE_PAR_DEFAUT) {
+  if (!grammes) return null
+  const format = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
+
+  return grammes >= 1000 ? `${format.format(grammes / 1000)} kg` : `${format.format(grammes)} g`
+}

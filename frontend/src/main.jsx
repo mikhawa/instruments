@@ -8,10 +8,11 @@ import '@fontsource/alegreya-sans/400.css'
 import '@fontsource/alegreya-sans/500.css'
 import '@fontsource/alegreya-sans/700.css'
 import './index.css'
-import App from './App.jsx'
+import { RouterProvider } from 'react-router'
+import { router } from './router.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <RouterProvider router={router} />
   </StrictMode>,
 )

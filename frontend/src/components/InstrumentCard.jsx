@@ -1,33 +1,30 @@
-import { disponibilite, formaterPrix, mentionEtat, nomPays, traduction } from '../lib/format.js'
+import { Link } from 'react-router'
+import Plaque from './Plaque.jsx'
+import { cheminInstrument, disponibilite, familleInstrument, formaterPrix, mentionEtat, traduction } from '../lib/format.js'
 
 /**
- * Vignette d'un instrument du catalogue.
- * Sans photo, la plaque supérieure affiche un motif propre à la famille
- * (cordes, trous de jeu, peau de tambour) et l'origine de l'instrument.
+ * Vignette d'un instrument du catalogue ; toute la vignette mène à la fiche détaillée.
+ * Le lien est porté par le nom (lecteurs d'écran) et étendu à la vignette en CSS.
  *
- * @param {{ instrument: object, famille: string | null, categorie: string | null }} props
+ * @param {{ instrument: object }} props
  */
-export default function InstrumentCard({ instrument, famille, categorie }) {
+export default function InstrumentCard({ instrument }) {
   const { nom, descriptionCourte } = traduction(instrument)
-  const image = instrument.images?.[0]
-  const pays = nomPays(instrument.paysOrigine)
-  const origine = [instrument.regionOrigine, pays].filter(Boolean).join(', ')
+  const categorie = traduction(instrument.categorie).nom
   const etat = mentionEtat(instrument)
   const stock = disponibilite(instrument)
 
   return (
-    <article className={`vignette vignette--${famille ?? 'autre'}`}>
-      <div className="vignette__plaque">
-        {image ? (
-          <img src={`/uploads/instruments/${image.fichier}`} alt={image.alt ?? nom} loading="lazy" />
-        ) : (
-          origine && <p className="vignette__origine">{origine}</p>
-        )}
-      </div>
+    <article className={`vignette famille--${familleInstrument(instrument) ?? 'autre'}`}>
+      <Plaque instrument={instrument} className="vignette__plaque" />
 
       <div className="vignette__corps">
         {categorie && <p className="vignette__categorie">{categorie}</p>}
-        <h2 className="vignette__nom">{nom}</h2>
+        <h2 className="vignette__nom">
+          <Link to={cheminInstrument(instrument)} className="vignette__lien">
+            {nom}
+          </Link>
+        </h2>
         {etat && <p className="vignette__etat">{etat}</p>}
         {descriptionCourte && <p className="vignette__description">{descriptionCourte}</p>}
       </div>
@@ -37,7 +34,7 @@ export default function InstrumentCard({ instrument, famille, categorie }) {
           {formaterPrix(instrument.prixTtc)}
           <span className="vignette__ttc"> TTC</span>
         </p>
-        <p className={`vignette__stock vignette__stock--${stock.niveau}`}>{stock.texte}</p>
+        <p className={`stock stock--${stock.niveau}`}>{stock.texte}</p>
       </footer>
     </article>
   )
