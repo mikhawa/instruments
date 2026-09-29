@@ -6,7 +6,7 @@ export UID := $(shell id -u)
 export GID := $(shell id -g)
 
 .DEFAULT_GOAL := help
-.PHONY: help build up down restart logs sh console composer db-reset test npm front-build
+.PHONY: help build up down restart logs sh console composer db-reset fixtures test npm front-build
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -38,6 +38,9 @@ db-reset: ## Recrée la base et joue les migrations
 	$(CONSOLE) doctrine:database:drop --force --if-exists
 	$(CONSOLE) doctrine:database:create
 	$(CONSOLE) doctrine:migrations:migrate --no-interaction
+
+fixtures: ## Recharge les données de développement (vide la base !)
+	$(CONSOLE) doctrine:fixtures:load --no-interaction
 
 test: ## Lance les tests PHPUnit
 	$(PHP) php bin/phpunit

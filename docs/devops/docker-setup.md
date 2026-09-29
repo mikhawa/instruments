@@ -38,6 +38,7 @@ make sh                                  # shell dans le conteneur PHP
 make console c="make:entity Instrument"  # console Symfony
 make composer c="require api"
 make db-reset                            # recrée la base + migrations
+make fixtures                            # données de développement (voir README)
 make test                                # PHPUnit
 ```
 
