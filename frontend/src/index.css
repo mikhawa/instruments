@@ -1,111 +1,319 @@
+/* ------------------------------------------------------------------
+   Jetons de design — encre indigo, laiton, teintes des matériaux
+   ------------------------------------------------------------------ */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --papier: #f2f3f7;
+  --surface: #ffffff;
+  --encre: #1f2a4d;
+  --encre-douce: #4d5675;
+  --trait: rgb(31 42 77 / 0.16);
+  --laiton: #8a6212;
+  --dispo: #2f6b45;
+  --epuise: #7a7f8f;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Teintes de famille : épicéa, roseau, peau */
+  --cordes: #e6d8c1;
+  --vents: #d3e0d2;
+  --percussions: #e9d3c8;
+  --autre: #dde0ea;
+  --motif: rgb(31 42 77 / 0.22);
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --serif: 'Alegreya', Georgia, serif;
+  --sans: 'Alegreya Sans', system-ui, sans-serif;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --rayon: 6px;
+  --gouttiere: clamp(1rem, 4vw, 3rem);
+
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+    --papier: #151b30;
+    --surface: #1d2440;
+    --encre: #e8eaf3;
+    --encre-douce: #b3b9cf;
+    --trait: rgb(232 234 243 / 0.14);
+    --laiton: #e0b75a;
+    --dispo: #8fd0a4;
+    --epuise: #9097ab;
+    --cordes: #4a3f30;
+    --vents: #33443a;
+    --percussions: #4b3530;
+    --autre: #2c3452;
+    --motif: rgb(232 234 243 / 0.2);
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    color-scheme: dark;
   }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  background: var(--papier);
+  color: var(--encre);
+  font-family: var(--serif);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
+h2,
 p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+:focus-visible {
+  outline: 3px solid var(--laiton);
+  outline-offset: 3px;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* ------------------------------------------------------------------
+   En-tête
+   ------------------------------------------------------------------ */
+.entete {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 7vw, 5rem) var(--gouttiere) clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.entete__marque {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--laiton);
+  margin-bottom: 1.25rem;
+}
+
+.entete__titre {
+  font-weight: 700;
+  font-size: clamp(2rem, 5.2vw, 3.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  max-width: 20ch;
+  text-wrap: balance;
+}
+
+.entete__intro {
+  margin-top: 1.25rem;
+  max-width: 56ch;
+  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
+  color: var(--encre-douce);
+}
+
+/* ------------------------------------------------------------------
+   Catalogue et grille responsive
+   ------------------------------------------------------------------ */
+.catalogue {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0 var(--gouttiere) 4rem;
+}
+
+.catalogue__compte {
+  font-family: var(--sans);
+  color: var(--encre-douce);
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--trait);
+  margin-bottom: 1.5rem;
+}
+
+.catalogue__message {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  padding: 2rem 0;
+  max-width: 56ch;
+}
+
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16.5rem), 1fr));
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+}
+
+/* ------------------------------------------------------------------
+   Vignette
+   ------------------------------------------------------------------ */
+.vignette {
+  --teinte: var(--autre);
+
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  overflow: hidden;
+}
+
+.vignette--cordes {
+  --teinte: var(--cordes);
+}
+
+.vignette--vents {
+  --teinte: var(--vents);
+}
+
+.vignette--percussions {
+  --teinte: var(--percussions);
+}
+
+/* Plaque : photo, ou motif de famille + origine */
+.vignette__plaque {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background-color: var(--teinte);
+  display: flex;
+  align-items: flex-end;
+}
+
+.vignette__plaque img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Cordes : faisceau de cordes tendues */
+.vignette--cordes .vignette__plaque {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 17px,
+    var(--motif) 17px 18px
+  );
+  background-size: 60% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Vents : rangée de trous de jeu */
+.vignette--vents .vignette__plaque {
+  background-image: radial-gradient(circle, var(--motif) 0 6px, transparent 7px);
+  background-size: 34px 34px;
+  background-position: center 38%;
+  background-repeat: space no-repeat;
+}
+
+/* Percussions : peau et cercles concentriques */
+.vignette--percussions .vignette__plaque {
+  background-image: repeating-radial-gradient(
+    circle at 50% 40%,
+    transparent 0 22px,
+    var(--motif) 22px 23px
+  );
+}
+
+.vignette__origine {
+  position: relative;
+  padding: 0.6rem 1rem;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--encre);
+}
+
+.vignette__corps {
+  flex: 1;
+  padding: 1rem 1rem 0.75rem;
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+}
+
+.vignette__categorie {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  color: var(--encre-douce);
+}
+
+.vignette__nom {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.vignette__etat {
+  font-style: italic;
+  color: var(--laiton);
+}
+
+.vignette__description {
+  color: var(--encre-douce);
+  font-size: 0.98rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vignette__pied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--trait);
+  font-family: var(--sans);
+}
+
+.vignette__prix {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.vignette__ttc {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--encre-douce);
+}
+
+.vignette__stock {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.vignette__stock--dispo {
+  color: var(--dispo);
+}
+
+.vignette__stock--dernier {
+  color: var(--laiton);
+}
+
+.vignette__stock--epuise {
+  color: var(--epuise);
+}
+
+/* Instrument épuisé : visible mais en retrait */
+.vignette:has(.vignette__stock--epuise) .vignette__prix {
+  color: var(--epuise);
+}
+
+/* Emplacement réservé pendant le chargement */
+.vignette--attente {
+  min-height: 22rem;
+  background: linear-gradient(var(--autre) 0 42%, var(--surface) 42%);
+}
+
+/* ------------------------------------------------------------------
+   Bouton
+   ------------------------------------------------------------------ */
+.bouton {
+  font: 500 1rem var(--sans);
+  color: var(--surface);
+  background: var(--encre);
+  border: 0;
+  border-radius: var(--rayon);
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
 }

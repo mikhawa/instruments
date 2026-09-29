@@ -1,122 +1,99 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useCallback, useEffect, useState } from 'react'
+import { fetchCollection } from './api/client.js'
+import { traduction } from './lib/format.js'
+import InstrumentCard from './components/InstrumentCard.jsx'
 
-function App() {
-  const [count, setCount] = useState(0)
+const VIGNETTES_ATTENTE = 8
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+/**
+ * Associe chaque catégorie à sa famille racine (slug fr : cordes, vents, percussions).
+ */
+function indexerCategories(categories) {
+  return new Map(
+    categories.map((categorie) => {
+      const racine = categorie.parent ?? categorie
+      return [categorie.id, { nom: traduction(categorie).nom, famille: traduction(racine, 'fr').slug ?? null }]
+    }),
   )
 }
 
-export default App
+export default function App() {
+  const [etat, setEtat] = useState({ statut: 'chargement', instruments: [], categories: new Map() })
+
+  const charger = useCallback((signal) => {
+    Promise.all([fetchCollection('/api/instruments', signal), fetchCollection('/api/categories', signal)])
+      .then(([instruments, categories]) => {
+        setEtat({ statut: 'pret', instruments, categories: indexerCategories(categories) })
+      })
+      .catch((erreur) => {
+        if (erreur.name !== 'AbortError') {
+          setEtat((precedent) => ({ ...precedent, statut: 'erreur' }))
+        }
+      })
+  }, [])
+
+  useEffect(() => {
+    const controleur = new AbortController()
+    charger(controleur.signal)
+
+    return () => controleur.abort()
+  }, [charger])
+
+  const reessayer = () => {
+    setEtat((precedent) => ({ ...precedent, statut: 'chargement' }))
+    charger()
+  }
+
+  const { statut, instruments, categories } = etat
+
+  return (
+    <>
+      <header className="entete">
+        <p className="entete__marque">Instruments traditionnels</p>
+        <h1 className="entete__titre">Des instruments de tradition, choisis chez ceux qui les fabriquent</h1>
+        <p className="entete__intro">
+          Luths, vièles, cornemuses, flûtes et tambours, neufs ou anciens, venus d'ateliers du monde entier.
+        </p>
+      </header>
+
+      <main className="catalogue" aria-busy={statut === 'chargement'}>
+        {statut === 'erreur' && (
+          <div className="catalogue__message" role="alert">
+            <p>Le catalogue n'a pas pu être chargé. Vérifiez votre connexion puis réessayez.</p>
+            <button type="button" className="bouton" onClick={reessayer}>
+              Réessayer
+            </button>
+          </div>
+        )}
+
+        {statut === 'pret' && instruments.length === 0 && (
+          <p className="catalogue__message">Aucun instrument n'est en vente pour le moment. Revenez bientôt.</p>
+        )}
+
+        {statut === 'pret' && instruments.length > 0 && (
+          <p className="catalogue__compte">
+            {instruments.length} instrument{instruments.length > 1 ? 's' : ''}
+          </p>
+        )}
+
+        <div className="grille">
+          {statut === 'chargement' &&
+            Array.from({ length: VIGNETTES_ATTENTE }, (_, i) => <div key={i} className="vignette vignette--attente" aria-hidden="true" />)}
+
+          {statut === 'pret' &&
+            instruments.map((instrument) => {
+              const categorie = categories.get(instrument.categorie?.id)
+              return (
+                <InstrumentCard
+                  key={instrument.id}
+                  instrument={instrument}
+                  famille={categorie?.famille ?? null}
+                  categorie={categorie?.nom ?? traduction(instrument.categorie).nom ?? null}
+                />
+              )
+            })}
+        </div>
+      </main>
+    </>
+  )
+}
