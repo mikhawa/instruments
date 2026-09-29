@@ -91,7 +91,7 @@ if (!reponse.ok) {
 
 1. **nginx** transmet la requête à PHP-FPM (`public/index.php`).
 2. Le **routeur** reconnaît `/api/instruments/{id}`, une route générée par API Platform à partir de l'attribut `#[ApiResource]` de `src/Entity/Instrument.php`.
-3. Le **pare-feu Symfony Security** identifie l'utilisateur (anonyme pour l'instant) et vérifie la règle `security` de l'opération.
+3. Le **pare-feu Symfony Security** identifie l'utilisateur grâce au cookie de session (ou le traite en anonyme) et vérifie la règle `security` de l'opération.
 4. Le **provider Doctrine** d'API Platform construit la requête SQL. L'**extension** `src/Doctrine/CatalogueVisibleExtension.php` y ajoute `published = true`.
 5. Le **sérialiseur** transforme l'entité en JSON, en ne gardant que les champs du groupe `instrument:read`.
 
@@ -110,6 +110,10 @@ if (!reponse.ok) {
 | **Intégrité en base** | Contraintes `CHECK`, clés étrangères, verrou optimiste sur `stock` | Même un bug applicatif ne peut pas rendre un stock négatif. |
 | **Injection SQL** | Doctrine utilise des requêtes préparées | Les valeurs envoyées ne sont jamais concaténées dans le SQL. |
 | **Mots de passe** | Hachage `auto` (bcrypt ou argon2), hash retiré de la session | Jamais stockés en clair. |
+| **Connexion** | `json_login` sur `POST /api/login` (`config/packages/security.yaml`) | Cookie de session `HttpOnly`, `SameSite=Lax` ; session régénérée à la connexion (anti-fixation). |
+| **Déconnexion** | Route `POST` uniquement | `GET /api/logout` renvoie `405` : un simple lien piégé ne peut pas déconnecter. |
+| **Anti force brute** | `login_throttling` : 5 échecs par e-mail et IP | 6ᵉ tentative : « Trop de tentatives de connexion échouées, veuillez réessayer dans 15 minutes. » |
+| **Redirection après connexion** | `cheminDeRetour()` dans `frontend/src/loaders.js` | Seuls les chemins internes sont acceptés (`?retour=//site-malveillant` renvoie vers `/`). |
 | **CORS** | `config/packages/nelmio_cors.yaml` + `CORS_ALLOW_ORIGIN` | Seules les origines `localhost` et `127.0.0.1` sont autorisées en dev. |
 
 Exemple vérifié :
@@ -125,10 +129,9 @@ DELETE /api/instruments/1   → 401
 
 | Manque | Conséquence actuelle | Solution prévue |
 |---|---|---|
-| **Aucune route de connexion** | Personne ne peut obtenir `ROLE_ADMIN` via l'API, donc toute écriture est impossible. C'est sûr, mais inutilisable pour l'administration. | `json_login` sur `/api/login`, `/api/logout` et `/api/me` (voir document 02) |
 | **Voters personnalisés** | Pas encore nécessaires : seul le catalogue public est exposé | `CommandeVoter` : un client ne voit que ses propres commandes |
-| **Protection CSRF** | Pas de risque tant qu'il n'y a pas de connexion | Cookie `SameSite=Lax`, JSON obligatoire en écriture ; jeton CSRF à évaluer |
-| **Limitation de débit** | La connexion pourra être attaquée par force brute | `login_throttling` de Symfony |
+| **Protection CSRF** | Atténuée : le cookie `SameSite=Lax` n'est pas envoyé par un formulaire posté depuis un autre site, et l'API refuse les corps non JSON | Jeton CSRF à ajouter si des navigateurs anciens doivent être pris en charge |
+| **Tests automatisés** | Vérifié à la main (curl, Playwright), pas de test PHPUnit | Base `instruments_test` + `WebTestCase` sur `/api/login` et `/api/me` |
 | **CORS en production** | La valeur actuelle n'autorise que `localhost` | Mettre le vrai domaine dans `CORS_ALLOW_ORIGIN`, ou tout servir sur un seul domaine |
 | **Traces d'erreur** | En dev, les erreurs contiennent la pile d'appels (fichiers, lignes) | Automatique avec `APP_ENV=prod` : message générique seulement |
 | **HTTPS** | En dev, tout passe en HTTP | Certificat Let's Encrypt via Plesk, cookies `secure` |

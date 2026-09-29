@@ -51,3 +51,48 @@ export async function fetchCollection(chemin, signal) {
 
   return elements
 }
+
+/**
+ * Envoie un corps JSON (connexion, déconnexion, écritures).
+ * Ne lève pas d'exception : renvoie { ok, status, corps } pour laisser l'appelant décider.
+ *
+ * @param {string} chemin
+ * @param {{ method?: string, corps?: object, signal?: AbortSignal }} [options]
+ * @returns {Promise<{ ok: boolean, status: number, corps: object | null }>}
+ */
+export async function envoyerJson(chemin, { method = 'POST', corps, signal } = {}) {
+  const reponse = await fetch(chemin, {
+    method,
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    credentials: 'same-origin',
+    body: corps === undefined ? undefined : JSON.stringify(corps),
+    signal,
+  })
+  let contenu = null
+  try {
+    contenu = await reponse.json()
+  } catch {
+    // Réponse vide (204) ou non JSON (page d'erreur du serveur)
+  }
+
+  return { ok: reponse.ok, status: reponse.status, corps: contenu }
+}
+
+/**
+ * Utilisateur connecté, ou null si aucune session n'est ouverte (401).
+ *
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<object | null>}
+ */
+export async function fetchUtilisateurCourant(signal) {
+  const reponse = await fetch('/api/me', {
+    headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
+    signal,
+  })
+
+  if (reponse.status === 401) return null
+  if (!reponse.ok) throw data(null, { status: reponse.status })
+
+  return reponse.json()
+}

@@ -26,6 +26,7 @@ export default function InstrumentCard({ instrument }) {
           </Link>
         </h2>
         {etat && <p className="vignette__etat">{etat}</p>}
+        {!instrument.published && <p className="brouillon" title="Visible par les administrateurs seulement">Non publié</p>}
         {descriptionCourte && <p className="vignette__description">{descriptionCourte}</p>}
       </div>
 

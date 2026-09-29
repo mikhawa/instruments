@@ -49,6 +49,7 @@ export default function InstrumentDetail() {
           {categorie && <p className="fiche__categorie">{categorie}</p>}
           <h1 className="fiche__nom">{nom}</h1>
           {etat && <p className="fiche__etat">{etat}</p>}
+          {!instrument.published && <p className="brouillon" title="Visible par les administrateurs seulement">Non publié</p>}
           {descriptionCourte && <p className="fiche__accroche">{descriptionCourte}</p>}
 
           <div className="fiche__achat">

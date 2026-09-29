@@ -9,6 +9,9 @@ flowchart LR
     API(["/api"])
 
     API --> H["/health<br/>GET"]
+    API --> LOGIN["/login<br/>POST"]
+    API --> ME["/me<br/>GET"]
+    API --> LOGOUT["/logout<br/>POST"]
     API --> DOCS["/docs<br/>GET"]
 
     API --> CAT["/categories"]
@@ -29,11 +32,13 @@ flowchart LR
 
     classDef public fill:#d3e0d2,stroke:#2f6b45,color:#1f2a4d
     classDef admin fill:#e9d3c8,stroke:#8a6212,color:#1f2a4d
-    class H,DOCS,CAT_L,CAT_G,INS_L,INS_G public
+    classDef session fill:#dde0ea,stroke:#1f2a4d,color:#1f2a4d
+    class H,DOCS,CAT_L,CAT_G,INS_L,INS_G,LOGIN public
+    class ME,LOGOUT session
     class CAT_P,CAT_PA,CAT_D,INS_P,INS_PA,INS_D admin
 ```
 
-Vert : public. Brun : réservé à `ROLE_ADMIN`.
+Vert : public. Gris-bleu : nécessite une session. Brun : réservé à `ROLE_ADMIN`.
 
 ### Détail
 
@@ -41,13 +46,16 @@ Vert : public. Brun : réservé à `ROLE_ADMIN`.
 |---|---|---|---|---|
 | `GET` | `/api/health` | public | `{"status":"ok","database":"ok"}` | non (supervision) |
 | `GET` | `/api/docs` | public | documentation interactive (Swagger UI) | non |
+| `POST` | `/api/login` | public | `{"email","password"}` → `200` + utilisateur + cookie ; `401` si refusé | **oui**, page `/connexion` |
+| `GET` | `/api/me` | session | utilisateur connecté, ou `401` | **oui**, à chaque navigation (en-tête) |
+| `POST` | `/api/logout` | session | `204`, session détruite | **oui**, bouton « Se déconnecter » |
 | `GET` | `/api/categories` | public | catégories **actives**, triées par position, sans pagination | non (plus nécessaire) |
 | `GET` | `/api/categories/{id}` | public | une catégorie active | non |
 | `POST` | `/api/categories` | admin | crée une catégorie | pas encore |
 | `PATCH` | `/api/categories/{id}` | admin | modifie une catégorie | pas encore |
 | `DELETE` | `/api/categories/{id}` | admin | supprime une catégorie ; bloqué par la base (`RESTRICT`) si elle contient des instruments, avec une erreur `500` à remplacer par un message clair | pas encore |
-| `GET` | `/api/instruments` | public | instruments **publiés**, 24 par page, les plus récents d'abord | **oui**, page d'accueil |
-| `GET` | `/api/instruments/{id}` | public | un instrument publié, sinon `404` | **oui**, fiche instrument |
+| `GET` | `/api/instruments` | public | instruments **publiés** (tous pour un admin), 24 par page, les plus récents d'abord | **oui**, page d'accueil |
+| `GET` | `/api/instruments/{id}` | public | un instrument publié (ou brouillon pour un admin), sinon `404` | **oui**, fiche instrument |
 | `POST` | `/api/instruments` | admin | crée un instrument, son stock est créé automatiquement | pas encore |
 | `PATCH` | `/api/instruments/{id}` | admin | modifie un instrument | pas encore |
 | `DELETE` | `/api/instruments/{id}` | admin | supprime un instrument | pas encore |
@@ -125,9 +133,9 @@ curl -H 'Accept: application/json' http://localhost:5173/api/instruments/1   # v
 
 Ou ouvrir **http://localhost:8080/api/docs** : chaque route peut être essayée depuis le navigateur.
 
-### S'authentifier (prévu, pas encore en place)
+### S'authentifier (en place)
 
-Aujourd'hui, **aucune route de connexion n'existe**. Voici le fonctionnement prévu, avec un cookie de session (le choix est expliqué dans le document 01) :
+Connexion par cookie de session (le choix est expliqué dans le document 01) :
 
 ```mermaid
 sequenceDiagram
@@ -152,29 +160,39 @@ sequenceDiagram
     S-->>R: 204, session détruite
 ```
 
-Nouveaux chemins prévus :
+Côté React, il n'y a **aucun jeton à stocker** : le navigateur gère le cookie. Tout passe par le routeur :
 
-| Méthode | Chemin | Rôle |
+| Élément | Fichier | Rôle |
 |---|---|---|
-| `POST` | `/api/login` | connexion (`json_login` de Symfony) |
-| `POST` | `/api/logout` | déconnexion |
-| `GET` | `/api/me` | utilisateur connecté, ou `401` |
-| `POST` | `/api/utilisateurs` | inscription |
-| `GET` / `POST` | `/api/commandes` | commandes du client connecté (voter) |
-
-Côté React, la connexion ressemblera à ceci. Il n'y a **aucun jeton à stocker** : le navigateur gère le cookie.
+| `racineLoader` | `src/loaders.js` | Appelle `/api/me` à chaque navigation ; `null` si anonyme |
+| `useRouteLoaderData('racine')` | `src/components/Layout.jsx` | Lit l'utilisateur pour l'en-tête (« Se connecter » ou nom + « Se déconnecter ») |
+| `connexionAction` | `src/loaders.js` | Reçoit le formulaire, appelle `POST /api/login`, puis redirige vers `?retour=` |
+| `deconnexionAction` | `src/loaders.js` | Appelle `POST /api/logout`, puis redirige vers l'accueil |
+| Page `/connexion` | `src/pages/Connexion.jsx` | Formulaire `<Form method="post">`, message d'erreur, état « Connexion en cours… » |
 
 ```js
-export async function connexion(email, password) {
-  const reponse = await fetch('/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({ email, password }),
+// src/loaders.js (extrait)
+export async function connexionAction({ request }) {
+  const formulaire = await request.formData()
+  const reponse = await envoyerJson('/api/login', {
+    corps: { email: formulaire.get('email'), password: formulaire.get('password') },
   })
-  if (!reponse.ok) throw new Error('Identifiants incorrects')
-  return reponse.json()
+  if (reponse.ok) return redirect(cheminDeRetour(request.url))
+  return { erreur: reponse.corps?.error ?? 'Adresse e-mail ou mot de passe incorrect.' }
 }
 ```
 
-Comptes de test disponibles une fois la connexion en place (créés par `make fixtures`) : `admin@instruments.test` / `admin`, et les clients avec le mot de passe `client` (voir `README.md`).
+Après chaque action, React Router relance les loaders : l'en-tête et le catalogue se mettent à jour seuls. Un administrateur connecté voit en plus les brouillons, marqués « Non publié ».
+
+Tester avec `curl` :
+
+```bash
+curl -c cookies.txt -H 'Content-Type: application/json' \
+     -d '{"email":"admin@instruments.test","password":"admin"}' http://localhost:8080/api/login
+curl -b cookies.txt http://localhost:8080/api/me
+curl -b cookies.txt -X POST http://localhost:8080/api/logout
+```
+
+Comptes de test (créés par `make fixtures`) : `admin@instruments.test` / `admin`, et les clients avec le mot de passe `client` (voir `README.md`).
+
+Chemins encore à venir : `POST /api/utilisateurs` (inscription), `GET`/`POST /api/commandes` (commandes du client connecté, avec voter).
