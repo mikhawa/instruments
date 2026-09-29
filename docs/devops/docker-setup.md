@@ -68,6 +68,15 @@ En production, `frontend/dist` est un site statique à servir par le serveur web
 
 `DATABASE_URL` et `MAILER_DSN` sont injectées par `compose.yaml` et priment sur le `.env` de Symfony.
 
+## Cache Symfony périmé
+
+Après une modification de mapping (entités, groupes de sérialisation), si l'API renvoie encore
+l'ancien format, `cache:clear` peut ne pas suffire (pools de métadonnées + APCu de PHP-FPM) :
+
+```bash
+rm -rf var/cache/dev && docker compose restart php
+```
+
 ## Xdebug
 
 Désactivé par défaut. Pour l'activer :

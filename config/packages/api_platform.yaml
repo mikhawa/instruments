@@ -1,0 +1,13 @@
+api_platform:
+    title: API Instruments traditionnels
+    description: Catalogue, stocks et commandes
+    version: 1.0.0
+    # JSON-LD (Hydra, documentation) + JSON simple pour le front React
+    formats:
+        jsonld: ['application/ld+json']
+        json: ['application/json']
+    defaults:
+        # Authentification par cookie de session Symfony (React servi sur la même origine)
+        stateless: false
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']
