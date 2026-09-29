@@ -15,6 +15,29 @@ security:
             # Ensure dev tools and static assets are always allowed
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+
+        # Back-office EasyAdmin : connexion par formulaire HTML, séparée de l'API
+        admin:
+            pattern: ^/admin
+            lazy: true
+            provider: utilisateurs
+
+            form_login:
+                login_path: admin_login
+                check_path: admin_login
+                default_target_path: admin
+                username_parameter: email
+                password_parameter: password
+                enable_csrf: true
+
+            logout:
+                path: admin_logout
+                target: admin_login
+
+            login_throttling:
+                max_attempts: 5
+                interval: '15 minutes'
+
         main:
             lazy: true
             provider: utilisateurs
@@ -42,7 +65,8 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
+        - { path: ^/admin/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
 
 when@test:

@@ -6,6 +6,7 @@
 |---|---|
 | Symfony (API) | http://localhost:8080 — documentation de l'API : http://localhost:8080/api/docs |
 | React (Vite) | http://localhost:5173 |
+| Back-office (EasyAdmin) | http://localhost:8080/admin — compte `ROLE_ADMIN` requis |
 | phpMyAdmin | http://localhost:8081 |
 | Mailpit | http://localhost:8025 |
 
