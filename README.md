@@ -23,3 +23,8 @@ Démarrage : `make up` (ou `docker compose up -d --build`) — détails dans `do
 | marie.dubois@example.test | client | cliente (fr, Liège) |
 | jan.peeters@example.test | client | client (en, Gent) |
 | lucia.garcia@example.test | client | cliente (es, Vigo) |
+
+## Déploiement
+
+GitHub Actions (`.github/workflows/deploy.yml`) : push sur `main` → préprod, tag `v*` → production.
+Préparation du VPS Plesk, secrets GitHub et retour arrière : `docs/devops/vps-preprod.md`.

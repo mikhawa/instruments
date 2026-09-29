@@ -1,0 +1,190 @@
+# Intégration continue et déploiement sur le VPS (Plesk, sans Docker).
+#
+#   pull request      → tests
+#   push sur main     → tests → build → préprod
+#   tag v*            → tests → build → production (après validation manuelle)
+#
+# Configuration GitHub (Settings → Environments), pour « preprod » et « production » :
+#   Secrets   : SSH_HOST, SSH_PORT, SSH_USER, SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS
+#   Variables : DEPLOY_PATH, SITE_URL, PHP_BIN (facultatif), RECHARGEMENT_PHP (facultatif)
+# Procédure complète : docs/devops/vps-preprod.md
+
+name: CI / Déploiement
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  tests-symfony:
+    name: Tests Symfony
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: test
+      # Doctrine ajoute le suffixe « _test » au nom de la base
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/instruments?serverVersion=11.4.0-MariaDB&charset=utf8mb4
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, pdo_mysql, zip, gd, apcu
+          tools: composer:v2
+          coverage: none
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ hashFiles('composer.lock') }}
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Lint
+        run: |
+          php bin/console lint:container
+          php bin/console lint:yaml config translations --parse-tags
+          php bin/console lint:twig templates
+      - name: Base de test et migrations
+        run: |
+          php bin/console doctrine:database:create --if-not-exists
+          php bin/console doctrine:migrations:migrate --no-interaction
+          php bin/console doctrine:schema:validate
+      - run: php bin/phpunit
+
+  tests-react:
+    name: Tests React
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  build:
+    name: Paquet de déploiement
+    if: github.event_name == 'push'
+    needs: [tests-symfony, tests-react]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, pdo_mysql, zip, gd, apcu
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Dépendances PHP de production
+        run: composer install --no-dev --no-interaction --no-progress --prefer-dist --classmap-authoritative --no-scripts
+      - name: Assets Symfony (bundles, AssetMapper)
+        env:
+          APP_ENV: prod
+          APP_SECRET: construction-uniquement
+        run: |
+          php bin/console assets:install public
+          php bin/console importmap:install
+          php bin/console asset-map:compile
+
+      - name: Build React
+        working-directory: frontend
+        run: npm ci && npm run build
+      - name: Intégration du build React dans public/
+        run: cp -r frontend/dist/. public/
+
+      - name: Archive
+        run: |
+          tar czf "$RUNNER_TEMP/release.tgz" \
+            --exclude=./.git --exclude=./.github --exclude=./.idea --exclude=./.claude-tasks \
+            --exclude=./frontend --exclude=./docker --exclude=./docs --exclude=./explication \
+            --exclude=./tests --exclude=./var --exclude=./.phpunit.cache \
+            --exclude=./.env.dev --exclude=./.env.test --exclude='./.env.local*' \
+            --exclude=./compose.yaml --exclude=./Makefile --exclude=./phpunit.dist.xml \
+            .
+          ls -lh "$RUNNER_TEMP/release.tgz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: ${{ runner.temp }}/release.tgz
+          retention-days: 7
+
+  deploy:
+    name: Déploiement (${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'préprod' }})
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'preprod' }}
+      url: ${{ vars.SITE_URL }}
+    # Un seul déploiement à la fois par environnement, sans annuler celui en cours
+    concurrency:
+      group: deploy-${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'preprod' }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+
+      - name: Clé SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName ${{ secrets.SSH_HOST }}
+            Port ${{ secrets.SSH_PORT }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Envoi et activation
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          PHP_BIN: ${{ vars.PHP_BIN }}
+          RECHARGEMENT_PHP: ${{ vars.RECHARGEMENT_PHP }}
+        run: |
+          RELEASE="$DEPLOY_PATH/releases/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          ssh vps "mkdir -p '$RELEASE'"
+          ssh vps "tar xzf - -C '$RELEASE'" < release.tgz
+          ssh vps "cd '$RELEASE' && PHP_BIN='${PHP_BIN:-/opt/plesk/php/8.3/bin/php}' RECHARGEMENT_PHP='$RECHARGEMENT_PHP' bash deploy/activer-release.sh '$DEPLOY_PATH'"
+
+      - name: Vérification du site
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          # Laisse expirer le cache realpath de PHP si PHP-FPM n'a pas été rechargé
+          [ -n "${{ vars.RECHARGEMENT_PHP }}" ] || sleep 5
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "$SITE_URL/api/health"
+          curl -fsS -o /dev/null "$SITE_URL/"
+          curl -fsS -o /dev/null "$SITE_URL/admin/login"
+          echo "Site opérationnel : $SITE_URL"

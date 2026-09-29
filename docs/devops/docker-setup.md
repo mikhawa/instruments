@@ -57,8 +57,9 @@ make npm c="install react-router"   # ajouter une dépendance
 make front-build                    # build de production → frontend/dist
 ```
 
-En production, `frontend/dist` est un site statique à servir par le serveur web, les requêtes
-`/api` étant routées vers Symfony (configuration Plesk à définir dans `docs/devops/vps-preprod.md`).
+En production, le contenu de `frontend/dist` est copié dans `public/` de Symfony par la CI ;
+`public/.htaccess` envoie `/api` et `/admin` vers Symfony et toute autre URL vers React
+(voir `docs/devops/vps-preprod.md`).
 
 ## Variables surchargeables
 

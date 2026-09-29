@@ -7,6 +7,11 @@ const apiTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://nginx:80'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // En production, le build est copié dans public/ de Symfony :
+    // « app/ » évite le conflit avec /assets/ réservé à l'AssetMapper
+    assetsDir: 'app',
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
