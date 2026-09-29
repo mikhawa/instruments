@@ -16,6 +16,7 @@ export default defineConfig({
     // Même origine en dev : pas de CORS entre React et l'API Symfony
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true },
+      '/uploads': { target: apiTarget, changeOrigin: true },
     },
   },
 })

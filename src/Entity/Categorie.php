@@ -45,7 +45,7 @@ class Categorie
 
     #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'enfants')]
     #[ORM\JoinColumn(onDelete: 'RESTRICT')]
-    #[Groups(['categorie:read', 'categorie:write'])]
+    #[Groups(['categorie:read', 'categorie:write', 'instrument:read'])]
     private ?Categorie $parent = null;
 
     /** @var Collection<int, Categorie> */

@@ -11,6 +11,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -27,12 +28,14 @@ class Utilisateur implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(options: ['unsigned' => true])]
+    #[Groups(['utilisateur:me'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
     #[Assert\NotBlank]
     #[Assert\Email]
     #[Assert\Length(max: 180)]
+    #[Groups(['utilisateur:me'])]
     private ?string $email = null;
 
     /** Hash du mot de passe */
@@ -46,11 +49,13 @@ class Utilisateur implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100)]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
+    #[Groups(['utilisateur:me'])]
     private ?string $prenom = null;
 
     #[ORM\Column(length: 100)]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
+    #[Groups(['utilisateur:me'])]
     private ?string $nom = null;
 
     #[ORM\Column(length: 30, nullable: true)]
@@ -60,6 +65,7 @@ class Utilisateur implements UserInterface, PasswordAuthenticatedUserInterface
     /** Langue des e-mails envoyés au client */
     #[ORM\Column(length: 5, options: ['default' => 'fr'])]
     #[Assert\Locale]
+    #[Groups(['utilisateur:me'])]
     private string $locale = 'fr';
 
     #[ORM\Column(name: 'is_verified', options: ['default' => false])]
@@ -105,6 +111,7 @@ class Utilisateur implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * @return list<string>
      */
+    #[Groups(['utilisateur:me'])]
     public function getRoles(): array
     {
         $roles = $this->roles;
