@@ -49,6 +49,57 @@ Routage (`public/.htaccess`, Apache) :
 Le build Vite range ses fichiers dans `app/` (`frontend/vite.config.js`), car `/assets/` est
 réservé à l'AssetMapper de Symfony.
 
+### Communication React ↔ API Symfony
+
+En production, **React n'est plus un serveur**. Le build Vite produit des fichiers statiques
+(`index.html` et `app/*.js`, `app/*.css`) que le workflow copie dans le `public/` de Symfony.
+Le serveur n'héberge donc qu'un seul site, servi par Apache et PHP. Il n'y a pas de Node et
+pas de second processus.
+
+Trajet d'une visite sur `https://<domaine>/instruments/12` :
+
+```
+Navigateur ──► nginx (Plesk, HTTPS) ──► Apache ──► public/.htaccess
+                                                     │
+        ┌────────────────────────────────────────────┼──────────────────────────┐
+        ▼                                            ▼                          ▼
+ fichier existant                       /api, /admin, /bundles, /_*     toute autre URL
+ (app/*.js, assets/, uploads)             → index.php (Symfony)          → index.html (React)
+ servi tel quel                           → réponse JSON                 → React Router prend le relais
+```
+
+1. Aucun fichier ne correspond à ce chemin, et il ne commence pas par `/api` : Apache
+   renvoie `index.html`.
+2. Le navigateur charge `/app/index-<hash>.js`, un fichier réel servi directement avec un
+   cache d'un an.
+3. React Router lit l'URL et exécute le loader, qui appelle
+   `fetch('/api/instruments/12')` (`frontend/src/loaders.js`).
+4. Cette URL commence par `/api` : Apache la transmet à `index.php` et API Platform répond
+   en JSON-LD.
+
+**Pourquoi aucune configuration n'est nécessaire** : le client API
+(`frontend/src/api/client.js`) utilise des URL **relatives** (`/api/...`) et
+`credentials: 'same-origin'`. React et l'API partagent la même origine, donc :
+
+- il n'y a pas d'URL d'API à définir selon l'environnement : `/api` désigne toujours le
+  serveur qui a servi la page ;
+- il n'y a pas de CORS : le navigateur ne voit qu'une seule origine ;
+- le cookie de session Symfony (connexion par `/api/login`) accompagne automatiquement
+  chaque appel.
+
+En dev, le proxy Vite (`frontend/vite.config.js`) reproduit cette même origine en relayant
+`/api`, `/admin`, `/bundles` et `/uploads` vers le conteneur nginx. Le code React est donc
+identique en dev et en prod.
+
+`CORS_ALLOW_ORIGIN` (voir 2.3) peut rester restreint au domaine : NelmioCors ne servira que
+si un autre domaine appelle l'API un jour.
+
+**Cas où il faudrait plus de configuration** : React hébergé sur un domaine différent de
+celui de l'API (`www.` et `api.`, application mobile…). Il faudrait alors une variable
+`VITE_API_URL` au moment du build, une configuration CORS avec `allow_credentials: true`,
+et soit un cookie `SameSite=None; Secure`, soit une authentification par jeton (JWT).
+L'architecture actuelle, sur un seul domaine, évite cette complexité.
+
 ---
 
 ## 2. Préparation du serveur (une fois par environnement)

@@ -6,7 +6,7 @@
         npm update
         uphp
         composer update
-### Nouveaux depuis l'instalation de sudo apt install make
+### Nouveaux depuis l'installation de sudo apt install make
         make up          # construit les images et démarre les conteneurs
         make fixtures    # charge les données de démo (à faire la première fois ; vide la base)
         make down        # arrêter les conteneurs
