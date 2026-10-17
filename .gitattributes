@@ -1,0 +1,18 @@
+# Fins de ligne : LF partout, quel que soit l'OS ou l'éditeur (Windows/WSL compris).
+# Un CRLF dans un script shell casse le shebang et bloque le démarrage des conteneurs.
+* text=auto eol=lf
+
+# Fichiers binaires : aucune conversion
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
+*.zip  binary
+*.gz   binary
