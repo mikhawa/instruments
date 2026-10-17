@@ -10,6 +10,8 @@
 | phpMyAdmin | http://localhost:8081 |
 | Mailpit | http://localhost:8025 |
 
+Après installation de `sudo apt install make`
+
 Démarrage : `make up` (ou `docker compose up -d --build`) — détails dans `docs/devops/docker-setup.md`.
 
 ## Données de développement
