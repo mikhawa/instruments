@@ -80,7 +80,7 @@ Avec [GitHub CLI](https://cli.github.com/) (`gh auth login` au préalable), par 
 ENV=preprod
 gh secret set SSH_HOST        --env $ENV --body "vps.mondomaine.be"
 gh secret set SSH_PORT        --env $ENV --body "22"
-gh secret set SSH_USER        --env $ENV --body "utilisateur_plesk"
+gh secret set SSH_USER        --env $ENV --body "utilisateur_du_site"
 gh secret set SSH_PRIVATE_KEY --env $ENV < ~/.ssh/instruments_deploy
 ssh-keyscan -p 22 vps.mondomaine.be 2>/dev/null | gh secret set SSH_KNOWN_HOSTS --env $ENV
 
