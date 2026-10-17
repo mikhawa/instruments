@@ -1,4 +1,4 @@
-# Intégration continue et déploiement sur le VPS (Plesk, sans Docker).
+# Intégration continue et déploiement sur le VPS (CyberPanel / OpenLiteSpeed, sans Docker).
 #
 #   pull request      → tests
 #   push sur main     → tests → build → préprod
@@ -176,7 +176,7 @@ jobs:
           RELEASE="$DEPLOY_PATH/releases/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
           ssh vps "mkdir -p '$RELEASE'"
           ssh vps "tar xzf - -C '$RELEASE'" < release.tgz
-          ssh vps "cd '$RELEASE' && PHP_BIN='${PHP_BIN:-/opt/plesk/php/8.3/bin/php}' RECHARGEMENT_PHP='$RECHARGEMENT_PHP' bash deploy/activer-release.sh '$DEPLOY_PATH'"
+          ssh vps "cd '$RELEASE' && PHP_BIN='${PHP_BIN:-/usr/local/lsws/lsphp83/bin/php}' RECHARGEMENT_PHP='$RECHARGEMENT_PHP' bash deploy/activer-release.sh '$DEPLOY_PATH'"
 
       - name: Vérification du site
         env:

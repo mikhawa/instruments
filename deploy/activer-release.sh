@@ -9,17 +9,17 @@
 #   <DEPLOY_PATH>/shared/public/uploads/   fichiers envoyés (images)
 #   <DEPLOY_PATH>/shared/var/log/          journaux
 #   <DEPLOY_PATH>/shared/sauvegardes/      dumps SQL avant migration
-#   <DEPLOY_PATH>/current -> releases/...  version servie par Apache
+#   <DEPLOY_PATH>/current -> releases/...  version servie par OpenLiteSpeed
 #
 # Variables facultatives :
-#   PHP_BIN             binaire PHP (défaut : PHP 8.3 de Plesk)
+#   PHP_BIN             binaire PHP (défaut : PHP 8.3 de CyberPanel, lsphp83)
 #   VERSIONS_CONSERVEES nombre de versions gardées (défaut : 5)
-#   RECHARGEMENT_PHP    commande pour recharger PHP-FPM / vider OPcache après bascule
+#   RECHARGEMENT_PHP    commande pour relancer lsphp / vider OPcache après bascule
 
 set -euo pipefail
 
 DEPLOY_PATH="${1:?Usage : $0 <DEPLOY_PATH>}"
-PHP="${PHP_BIN:-/opt/plesk/php/8.3/bin/php}"
+PHP="${PHP_BIN:-/usr/local/lsws/lsphp83/bin/php}"
 VERSIONS_CONSERVEES="${VERSIONS_CONSERVEES:-5}"
 RELEASE="$(pwd -P)"
 SHARED="$DEPLOY_PATH/shared"
@@ -63,7 +63,7 @@ if command -v mysqldump >/dev/null 2>&1; then
     echo "Sauvegarde : $DUMP"
     ls -1t "$SHARED/sauvegardes/${BASE}_"*.sql.gz | tail -n +11 | xargs -r rm -f
 else
-    echo "mysqldump introuvable : sauvegarde ignorée (vérifier les sauvegardes Plesk)"
+    echo "mysqldump introuvable : sauvegarde ignorée (vérifier les sauvegardes CyberPanel)"
 fi
 
 etape "Migrations"

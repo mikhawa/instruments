@@ -17,7 +17,7 @@ Chiffrés par GitHub, jamais affichés dans les journaux.
 |---|---|---|---|
 | `SSH_HOST` | oui | Adresse du VPS | `vps.mondomaine.be` ou `203.0.113.10` |
 | `SSH_PORT` | oui | Port SSH du VPS | `22` (ou le port personnalisé) |
-| `SSH_USER` | oui | Utilisateur système **du domaine** dans Plesk (pas `root`) | Plesk → Sites Web & Domaines → le domaine → Connexion Web & FTP |
+| `SSH_USER` | oui | Utilisateur système **du site** créé par CyberPanel (pas `root`) | CyberPanel → Websites → List Websites → Manage |
 | `SSH_PRIVATE_KEY` | oui | Clé **privée** dédiée au déploiement, contenu complet du fichier | voir § 3.1 — commence par `-----BEGIN OPENSSH PRIVATE KEY-----` |
 | `SSH_KNOWN_HOSTS` | oui | Empreinte du serveur (protège contre l'usurpation du serveur) | voir § 3.2 |
 
@@ -27,10 +27,10 @@ Non chiffrées, visibles dans les journaux : aucune donnée sensible ici.
 
 | Nom | Obligatoire | Description | Exemple |
 |---|---|---|---|
-| `DEPLOY_PATH` | oui | Dossier du projet sur le serveur, **sans `/` final** | `/var/www/vhosts/mondomaine.be/instruments` |
+| `DEPLOY_PATH` | oui | Dossier du projet sur le serveur, **sans `/` final** | `/home/mondomaine.be/instruments` |
 | `SITE_URL` | oui | URL publique, **sans `/` final** (sert aux vérifications après déploiement) | `https://mondomaine.be` |
-| `PHP_BIN` | non | Binaire PHP CLI de Plesk | défaut : `/opt/plesk/php/8.3/bin/php` |
-| `RECHARGEMENT_PHP` | non | Commande lancée après la bascule pour vider OPcache | `sudo /usr/sbin/service plesk-php83-fpm reload` (nécessite une règle sudo, voir `vps-preprod.md` § 5) |
+| `PHP_BIN` | non | Binaire PHP CLI de CyberPanel | défaut : `/usr/local/lsws/lsphp83/bin/php` |
+| `RECHARGEMENT_PHP` | non (conseillée) | Commande lancée après la bascule pour vider OPcache | `pkill -u "$(id -un)" -x lsphp \|\| true` (voir `vps-preprod.md` § 5) |
 
 ## 3. Valeurs à préparer
 
@@ -43,7 +43,7 @@ ssh-keygen -t ed25519 -C "github-deploy-instruments" -f ~/.ssh/instruments_deplo
 ```
 
 - `~/.ssh/instruments_deploy.pub` (clé **publique**) → à ajouter sur le serveur dans
-  `~/.ssh/authorized_keys` de l'utilisateur `SSH_USER` ;
+  `/home/<domaine>/.ssh/authorized_keys` de l'utilisateur `SSH_USER` (voir `vps-preprod.md` § 2.2) ;
 - `~/.ssh/instruments_deploy` (clé **privée**) → contenu complet à coller dans `SSH_PRIVATE_KEY` :
 
 ```bash
@@ -84,8 +84,9 @@ gh secret set SSH_USER        --env $ENV --body "utilisateur_plesk"
 gh secret set SSH_PRIVATE_KEY --env $ENV < ~/.ssh/instruments_deploy
 ssh-keyscan -p 22 vps.mondomaine.be 2>/dev/null | gh secret set SSH_KNOWN_HOSTS --env $ENV
 
-gh variable set DEPLOY_PATH --env $ENV --body "/var/www/vhosts/preprod.mondomaine.be/instruments"
+gh variable set DEPLOY_PATH --env $ENV --body "/home/preprod.mondomaine.be/instruments"
 gh variable set SITE_URL    --env $ENV --body "https://preprod.mondomaine.be"
+gh variable set RECHARGEMENT_PHP --env $ENV --body 'pkill -u "$(id -un)" -x lsphp || true'
 ```
 
 Répéter avec `ENV=production` et les valeurs de production.

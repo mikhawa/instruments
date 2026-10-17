@@ -1,8 +1,9 @@
-# Déploiement sur le VPS (Plesk, nginx + Apache)
+# Déploiement sur le VPS (CyberPanel, OpenLiteSpeed)
 
-Préprod et production tournent **sans Docker** sur le VPS Debian 12 administré par Plesk.
-GitHub Actions construit un paquet complet (dépendances PHP, assets, build React), l'envoie
-par SSH, puis le script `deploy/activer-release.sh` l'active sur le serveur.
+Préprod et production tournent **sans Docker** sur le VPS administré par CyberPanel
+(serveur web OpenLiteSpeed, PHP 8.3 `lsphp83`, MariaDB). GitHub Actions construit un paquet
+complet (dépendances PHP, assets, build React), l'envoie par SSH, puis le script
+`deploy/activer-release.sh` l'active sur le serveur.
 
 ```
 pull request   → tests (Symfony + React)
@@ -19,29 +20,39 @@ Le serveur n'a besoin ni de Node ni de Composer : seulement PHP 8.3 et MariaDB.
 Un seul domaine sert à la fois React et Symfony. Il n'y a donc ni CORS ni second cookie :
 la session est commune au site et au back-office.
 
+CyberPanel crée pour chaque site un utilisateur système dont le dossier personnel est
+`/home/<domaine>`, et sert le dossier `/home/<domaine>/public_html`. Ce dossier est remplacé
+par un **lien** vers la version en ligne :
+
 ```
-/var/www/vhosts/<domaine>/instruments/      ← DEPLOY_PATH
-├── current -> releases/20260929-153000-a1b2c3d   ← racine du document : current/public
-├── releases/                                ← 5 dernières versions
-│   └── 20260929-153000-a1b2c3d/
-│       ├── public/index.html, app/          ← build React
-│       ├── public/index.php, bundles/, assets/  ← Symfony
-│       ├── public/.htaccess                 ← routage (voir ci-dessous)
-│       ├── .env.local -> ../../shared/.env.local
-│       ├── public/uploads -> ../../shared/public/uploads
-│       └── var/log -> ../../shared/var/log
-└── shared/
-    ├── .env.local                           ← secrets (jamais dans git)
-    ├── public/uploads/                      ← images envoyées
-    ├── var/log/                             ← journaux Symfony
-    └── sauvegardes/                         ← dump SQL avant chaque migration (10 derniers)
+/home/<domaine>/
+├── public_html -> instruments/current/public        ← racine servie par OpenLiteSpeed
+└── instruments/                                     ← DEPLOY_PATH
+    ├── current -> releases/20261017-153000-a1b2c3d
+    ├── releases/                                    ← 5 dernières versions
+    │   └── 20261017-153000-a1b2c3d/
+    │       ├── public/index.html, app/              ← build React
+    │       ├── public/index.php, bundles/, assets/  ← Symfony
+    │       ├── public/.htaccess                     ← routage (voir ci-dessous)
+    │       ├── .env.local -> ../../shared/.env.local
+    │       ├── public/uploads -> ../../shared/public/uploads
+    │       └── var/log -> ../../shared/var/log
+    └── shared/
+        ├── .env.local                               ← secrets (jamais dans git)
+        ├── public/uploads/                          ← images envoyées
+        ├── var/log/                                 ← journaux Symfony
+        └── sauvegardes/                             ← dump SQL avant chaque migration (10 derniers)
 ```
 
-Routage (`public/.htaccess`, Apache) :
+Garder `public_html` (sous forme de lien) plutôt que modifier la racine du site dans
+CyberPanel : le renouvellement automatique du certificat Let's Encrypt écrit dans
+`public_html/.well-known/`, et continue ainsi de fonctionner.
+
+Routage (`public/.htaccess`, lu par OpenLiteSpeed) :
 
 | URL | Servie par |
 |---|---|
-| fichier existant (`/app/…`, `/assets/…`, `/bundles/…`, `/uploads/…`) | Apache, directement |
+| fichier existant (`/app/…`, `/assets/…`, `/bundles/…`, `/uploads/…`, `/.well-known/…`) | OpenLiteSpeed, directement |
 | `/api/…`, `/admin/…` | Symfony (`index.php`) |
 | fichier statique absent (`/app/x.js`) | 404 |
 | toute autre URL (`/`, `/instruments/oud-turc`, `/connexion`) | `index.html` (React Router) |
@@ -53,29 +64,28 @@ réservé à l'AssetMapper de Symfony.
 
 En production, **React n'est plus un serveur**. Le build Vite produit des fichiers statiques
 (`index.html` et `app/*.js`, `app/*.css`) que le workflow copie dans le `public/` de Symfony.
-Le serveur n'héberge donc qu'un seul site, servi par Apache et PHP. Il n'y a pas de Node et
-pas de second processus.
+Le serveur n'héberge donc qu'un seul site, servi par OpenLiteSpeed et PHP. Il n'y a pas de
+Node et pas de second processus.
 
 Trajet d'une visite sur `https://<domaine>/instruments/12` :
 
 ```
-Navigateur ──► nginx (Plesk, HTTPS) ──► Apache ──► public/.htaccess
-                                                     │
-        ┌────────────────────────────────────────────┼──────────────────────────┐
-        ▼                                            ▼                          ▼
- fichier existant                       /api, /admin, /bundles, /_*     toute autre URL
- (app/*.js, assets/, uploads)             → index.php (Symfony)          → index.html (React)
- servi tel quel                           → réponse JSON                 → React Router prend le relais
+Navigateur ──► OpenLiteSpeed (HTTPS) ──► public/.htaccess
+                                           │
+        ┌──────────────────────────────────┼──────────────────────────┐
+        ▼                                  ▼                          ▼
+ fichier existant             /api, /admin, /bundles, /_*     toute autre URL
+ (app/*.js, assets/, uploads)   → index.php (Symfony)          → index.html (React)
+ servi tel quel                 → réponse JSON                 → React Router prend le relais
 ```
 
-1. Aucun fichier ne correspond à ce chemin, et il ne commence pas par `/api` : Apache
-   renvoie `index.html`.
-2. Le navigateur charge `/app/index-<hash>.js`, un fichier réel servi directement avec un
-   cache d'un an.
+1. Aucun fichier ne correspond à ce chemin, et il ne commence pas par `/api` :
+   OpenLiteSpeed renvoie `index.html`.
+2. Le navigateur charge `/app/index-<hash>.js`, un fichier réel servi directement.
 3. React Router lit l'URL et exécute le loader, qui appelle
    `fetch('/api/instruments/12')` (`frontend/src/loaders.js`).
-4. Cette URL commence par `/api` : Apache la transmet à `index.php` et API Platform répond
-   en JSON-LD.
+4. Cette URL commence par `/api` : la requête est transmise à `index.php` et API Platform
+   répond en JSON-LD.
 
 **Pourquoi aucune configuration n'est nécessaire** : le client API
 (`frontend/src/api/client.js`) utilise des URL **relatives** (`/api/...`) et
@@ -91,7 +101,7 @@ En dev, le proxy Vite (`frontend/vite.config.js`) reproduit cette même origine 
 `/api`, `/admin`, `/bundles` et `/uploads` vers le conteneur nginx. Le code React est donc
 identique en dev et en prod.
 
-`CORS_ALLOW_ORIGIN` (voir 2.3) peut rester restreint au domaine : NelmioCors ne servira que
+`CORS_ALLOW_ORIGIN` (voir 2.5) peut rester restreint au domaine : NelmioCors ne servira que
 si un autre domaine appelle l'API un jour.
 
 **Cas où il faudrait plus de configuration** : React hébergé sur un domaine différent de
@@ -106,26 +116,24 @@ L'architecture actuelle, sur un seul domaine, évite cette complexité.
 
 À faire pour la **préprod** (ex. `preprod.<domaine>`) puis pour la **production**.
 
-### 2.1 Plesk
+### 2.1 CyberPanel
 
-1. **Sites Web & Domaines** → ajouter le domaine ou le sous-domaine.
-2. **Hébergement & DNS → Paramètres d'hébergement** :
-   - racine du document : `instruments/current/public` ;
-   - (le dossier n'existe pas encore : Plesk le crée vide, le premier déploiement le remplacera
-     par un lien, voir 2.3).
-3. **PHP** : version **8.3**, gestionnaire **FPM servi par Apache**. Extensions requises :
-   `intl`, `pdo_mysql`, `opcache`, `mbstring`, `zip`, `gd`, `apcu` (facultatif).
-   Réglages conseillés : `memory_limit = 256M`, `upload_max_filesize = 20M`,
-   `post_max_size = 25M`, `opcache.validate_timestamps = 0` en production.
-4. **Apache & nginx** : laisser le mode par défaut (nginx en proxy devant Apache).
-   Si « Servir les fichiers statiques directement par nginx » est coché, garder la liste
-   d'extensions par défaut : les fichiers existants sont servis par nginx, tout le reste passe
-   par Apache et `public/.htaccess`.
-5. **SSL/TLS** : certificat Let's Encrypt, redirection HTTP → HTTPS. Indispensable : le cookie
-   de session est `secure` en HTTPS.
-6. **Bases de données** : créer une base (ex. `instruments_prod`) et un utilisateur dédié.
-7. **Accès SSH** (Connexion Web & FTP ou Paramètres d'hébergement) : shell `/bin/bash`
-   pour l'utilisateur système du domaine.
+1. **Websites → Create Website** : domaine (ou sous-domaine), version PHP **8.3**.
+   Noter l'**utilisateur système** créé pour le site (Websites → List Websites → Manage).
+2. **SSL** : *Websites → List Websites → Manage → Issue SSL* (Let's Encrypt). À faire
+   **maintenant**, avant de remplacer `public_html` (§ 2.4). Le domaine doit déjà pointer
+   vers le VPS (DNS).
+3. **Extensions PHP** : *Server → PHP → Install Extensions*, choisir `lsphp83`, installer au
+   besoin `intl`, `mysql(nd)`, `opcache`, `mbstring`, `zip`, `gd`, `apcu` (facultatif).
+   Vérification en SSH : `/usr/local/lsws/lsphp83/bin/php -m`.
+4. **Réglages PHP** : *Server → PHP → Edit PHP Configs* (`lsphp83`) :
+   `memory_limit = 256M`, `upload_max_filesize = 20M`, `post_max_size = 25M`.
+5. **Base de données** : *Databases → Create Database*, rattachée au site. Noter le nom
+   exact de la base et de l'utilisateur affichés (CyberPanel peut les préfixer).
+6. **Accès SSH** de l'utilisateur du site : *Websites → List Websites → Manage → SSH Access*.
+   Si sa connexion est refusée faute de shell, en `root` :
+   `usermod -s /bin/bash <utilisateur>`.
+7. **Pare-feu** : *Security → Firewall*, vérifier que le port SSH est ouvert.
 
 ### 2.2 Clé SSH de déploiement
 
@@ -135,8 +143,23 @@ Sur votre poste, générer une clé **réservée à GitHub** (sans phrase de pas
 ssh-keygen -t ed25519 -C "github-deploy-instruments" -f ~/.ssh/instruments_deploy -N ""
 ```
 
-Ajouter `~/.ssh/instruments_deploy.pub` aux clés autorisées de l'utilisateur système du
-domaine (`~/.ssh/authorized_keys` sur le serveur, ou Plesk → extension « SSH Keys Manager »).
+Ajouter la clé publique à l'utilisateur **du site** (pas `root`), en `root` sur le VPS :
+
+```bash
+U=<utilisateur>; H=/home/<domaine>
+install -d -m 700 -o $U -g $U $H/.ssh
+echo "<contenu de ~/.ssh/instruments_deploy.pub>" >> $H/.ssh/authorized_keys
+chown $U:$U $H/.ssh/authorized_keys && chmod 600 $H/.ssh/authorized_keys
+```
+
+Si la connexion par clé échoue encore, `sshd` refuse sans doute un dossier personnel
+modifiable par le groupe : `chmod g-w,o-w $H` (et consulter `/var/log/auth.log`).
+
+Test depuis votre poste :
+
+```bash
+ssh -i ~/.ssh/instruments_deploy -p <port> <utilisateur>@<hôte> "whoami && pwd"
+```
 
 Récupérer l'empreinte du serveur pour `SSH_KNOWN_HOSTS` :
 
@@ -144,17 +167,17 @@ Récupérer l'empreinte du serveur pour `SSH_KNOWN_HOSTS` :
 ssh-keyscan -p <port> <hôte> 2>/dev/null
 ```
 
-Vérifier l'empreinte affichée avec celle que Plesk ou l'hébergeur communique : c'est elle
-qui protège le déploiement contre une usurpation du serveur.
+Vérifier l'empreinte affichée avec celle du serveur
+(`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` sur le VPS) : c'est elle qui protège le
+déploiement contre une usurpation du serveur.
 
 ### 2.3 Dossiers et secrets sur le serveur
 
-Connecté en SSH avec l'utilisateur du domaine :
+Connecté en SSH **avec l'utilisateur du site** :
 
 ```bash
-DEPLOY_PATH=/var/www/vhosts/<domaine>/instruments
+DEPLOY_PATH=/home/<domaine>/instruments
 mkdir -p $DEPLOY_PATH/{releases,shared/public/uploads,shared/var/log,shared/sauvegardes}
-rmdir $DEPLOY_PATH/current/public $DEPLOY_PATH/current 2>/dev/null || true   # dossier vide créé par Plesk
 nano $DEPLOY_PATH/shared/.env.local
 chmod 600 $DEPLOY_PATH/shared/.env.local
 ```
@@ -172,9 +195,55 @@ MAILER_DSN=smtp://<utilisateur>:<mot_de_passe>@<serveur_smtp>:587
 ```
 
 Un `APP_SECRET` **différent** par environnement. Les caractères spéciaux du mot de passe
-dans `DATABASE_URL` doivent être encodés (`@` → `%40`, `#` → `%23`, etc.).
+dans `DATABASE_URL` doivent être encodés (`@` → `%40`, `#` → `%23`, etc.). Ajuster
+`serverVersion` à la version réelle de MariaDB (`mariadb --version`).
 
-### 2.4 GitHub
+### 2.4 Racine du site
+
+Toujours avec l'utilisateur du site, remplacer `public_html` par un lien vers la version en
+ligne (le lien reste « cassé » jusqu'au premier déploiement, c'est normal) :
+
+```bash
+cd /home/<domaine>
+mv public_html public_html.origine      # page par défaut de CyberPanel, à supprimer plus tard
+ln -s instruments/current/public public_html
+```
+
+Dans *Websites → List Websites → Manage → vHost Conf* (compte administrateur), vérifier :
+
+```
+index  {
+  useServer               0
+  indexFiles              index.html, index.php
+}
+
+rewrite  {
+  enable                  1
+  autoLoadHtaccess        1
+}
+```
+
+`autoLoadHtaccess` fait lire `public/.htaccess` par OpenLiteSpeed. Si les routes React
+(`/connexion`…) répondent 404 après le premier déploiement, redémarrer OpenLiteSpeed :
+*Server Status → LiteSpeed Status → Reboot LiteSpeed* (ou `systemctl restart lsws` en root).
+
+En-têtes de cache (facultatif) : OpenLiteSpeed ignore les directives `Header` / `Expires`
+des `.htaccess`. Par défaut, `index.html` n'est pas mis en cache longtemps, ce qui suffit.
+Pour un cache long sur `app/` et `assets/` (fichiers versionnés), ajouter un contexte
+statique dans *vHost Conf* :
+
+```
+context /app/ {
+  location                $DOC_ROOT/app/
+  allowBrowse             1
+  enableExpires           1
+  expiresByType           */*=A31536000
+}
+```
+
+(idem pour `/assets/`).
+
+### 2.5 GitHub
 
 Liste détaillée et commandes : [`github-variables.md`](github-variables.md).
 
@@ -184,13 +253,13 @@ Liste détaillée et commandes : [`github-variables.md`](github-variables.md).
 |---|---|---|
 | `SSH_HOST` | secret | `vps.mondomaine.be` |
 | `SSH_PORT` | secret | `22` |
-| `SSH_USER` | secret | utilisateur système du domaine |
+| `SSH_USER` | secret | utilisateur système du site |
 | `SSH_PRIVATE_KEY` | secret | contenu de `~/.ssh/instruments_deploy` (clé privée) |
 | `SSH_KNOWN_HOSTS` | secret | sortie de `ssh-keyscan` |
-| `DEPLOY_PATH` | variable | `/var/www/vhosts/<domaine>/instruments` |
+| `DEPLOY_PATH` | variable | `/home/<domaine>/instruments` |
 | `SITE_URL` | variable | `https://<domaine>` (sans `/` final) |
-| `PHP_BIN` | variable (facultative) | défaut : `/opt/plesk/php/8.3/bin/php` |
-| `RECHARGEMENT_PHP` | variable (facultative) | voir « OPcache » ci-dessous |
+| `PHP_BIN` | variable (facultative) | défaut : `/usr/local/lsws/lsphp83/bin/php` |
+| `RECHARGEMENT_PHP` | variable (conseillée) | `pkill -u "$(id -un)" -x lsphp \|\| true` (voir § 5) |
 
 Pour `production` :
 - **Required reviewers** : vous-même (le déploiement attend votre validation). Sur un dépôt
@@ -223,7 +292,7 @@ puis valider le déploiement dans l'onglet **Actions** de GitHub.
 4. `doctrine:migrations:migrate` ;
 5. `cache:warmup` (environnement `prod`) ;
 6. **bascule atomique** du lien `current` ;
-7. rechargement de PHP si `RECHARGEMENT_PHP` est défini ;
+7. relance de PHP si `RECHARGEMENT_PHP` est défini ;
 8. suppression des versions au-delà des 5 dernières.
 
 Le workflow vérifie ensuite `/api/health` (connexion à la base comprise), `/` et `/admin/login`.
@@ -235,7 +304,7 @@ Si une étape échoue avant la bascule, **la version en ligne n'est pas touchée
 
 ```bash
 ssh <utilisateur>@<hôte>
-cd /var/www/vhosts/<domaine>/instruments
+cd /home/<domaine>/instruments
 bash current/deploy/revenir-version.sh "$PWD"
 ```
 
@@ -251,10 +320,12 @@ gunzip < shared/sauvegardes/<base>_<date>.sql.gz | mysql <base>
 
 ## 5. Points d'attention
 
-- **OPcache** : après la bascule, PHP peut servir l'ancienne version quelques secondes (cache
-  realpath) — ou plus longtemps si `opcache.validate_timestamps = 0`. Solution : demander à
-  l'administrateur du VPS une règle sudo limitée, puis définir la variable GitHub
-  `RECHARGEMENT_PHP`, par exemple `sudo /usr/sbin/service plesk-php83-fpm reload`.
+- **OPcache et cache des chemins** : après la bascule du lien `current`, les processus
+  `lsphp` peuvent servir l'ancienne version (OPcache, cache realpath de PHP). La variable
+  GitHub `RECHARGEMENT_PHP` = `pkill -u "$(id -un)" -x lsphp || true` arrête les processus
+  PHP du site ; OpenLiteSpeed les relance à la requête suivante. Ils tournent sous
+  l'utilisateur du site : aucun droit `root` n'est nécessaire. À vérifier lors du premier
+  déploiement (`ps -u <utilisateur> -o pid,comm` doit montrer des processus `lsphp`).
 - **Fixtures** : ne **jamais** lancer `doctrine:fixtures:load` en préprod ou en production :
   la commande vide la base. Le bundle n'est d'ailleurs pas installé (`--no-dev`).
 - **Premier compte administrateur** : à créer à la main après le premier déploiement.
@@ -263,4 +334,5 @@ gunzip < shared/sauvegardes/<base>_<date>.sql.gz | mysql <base>
   Une commande dédiée (`app:creer-admin`) serait plus sûre : à prévoir.
 - **Tests** : la CI lance PHPUnit, mais le projet n'a encore aucun test. Le garde-fou
   actuel se limite aux lints, aux migrations sur une base vierge et à `doctrine:schema:validate`.
-- **Journaux** : `shared/var/log/prod.log`, conservés d'une version à l'autre.
+- **Journaux** : `shared/var/log/prod.log`, conservés d'une version à l'autre. Journaux
+  d'OpenLiteSpeed : `/home/<domaine>/logs/`.

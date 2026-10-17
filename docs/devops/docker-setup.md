@@ -103,4 +103,4 @@ OPcache preload) utilisable en CI/préprod :
 docker build -f docker/php/Dockerfile --target prod -t instruments-php:prod .
 ```
 
-La production (VPS Debian sous Plesk) n'utilise pas Docker : voir `docs/devops/vps-preprod.md`.
+La production (VPS sous CyberPanel) n'utilise pas Docker : voir `docs/devops/vps-preprod.md`.

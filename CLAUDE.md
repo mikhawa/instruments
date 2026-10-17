@@ -8,7 +8,7 @@
 
 **Stack** : Symfony 7.4 LTS --webapp | PHP 8.3 | API pour communiquer avec React, MariaDB 11.4 | Docker | React on front-end.
 
-**Environnements** : dev (Docker local) → préprod (GitHub CI) → prod (VPS Debian 12.13 sous Plesk).
+**Environnements** : dev (Docker local) → préprod (GitHub CI) → prod (VPS sous CyberPanel / OpenLiteSpeed, PHP 8.3).
 
 
 ### Sélection obligatoire avant chaque tâche

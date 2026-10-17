@@ -27,4 +27,4 @@ Démarrage : `make up` (ou `docker compose up -d --build`) — détails dans `do
 ## Déploiement
 
 GitHub Actions (`.github/workflows/deploy.yml`) : push sur `main` → préprod, tag `v*` → production.
-Préparation du VPS Plesk, secrets GitHub et retour arrière : `docs/devops/vps-preprod.md`.
+Préparation du VPS CyberPanel, secrets GitHub et retour arrière : `docs/devops/vps-preprod.md`.

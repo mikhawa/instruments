@@ -134,7 +134,7 @@ DELETE /api/instruments/1   → 401
 | **Tests automatisés** | Vérifié à la main (curl, Playwright), pas de test PHPUnit | Base `instruments_test` + `WebTestCase` sur `/api/login` et `/api/me` |
 | **CORS en production** | La valeur actuelle n'autorise que `localhost` | Mettre le vrai domaine dans `CORS_ALLOW_ORIGIN`, ou tout servir sur un seul domaine |
 | **Traces d'erreur** | En dev, les erreurs contiennent la pile d'appels (fichiers, lignes) | Automatique avec `APP_ENV=prod` : message générique seulement |
-| **HTTPS** | En dev, tout passe en HTTP | Certificat Let's Encrypt via Plesk, cookies `secure` |
+| **HTTPS** | En dev, tout passe en HTTP | Certificat Let's Encrypt via CyberPanel, cookies `secure` |
 
 ### Le choix du cookie de session plutôt qu'un jeton JWT
 
