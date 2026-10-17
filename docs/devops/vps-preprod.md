@@ -247,7 +247,7 @@ context /app/ {
 
 Liste détaillée et commandes : [`github-variables.md`](github-variables.md).
 
-**Settings → Environments** : créer `preprod` et `production`.
+**Settings → Environments** : créer `dev` (préprod) et `production`.
 
 | Nom | Type | Exemple |
 |---|---|---|
@@ -267,7 +267,7 @@ Pour `production` :
   seule action volontaire qui déclenche la production ;
 - **Deployment branches and tags** : limiter aux tags `v*`.
 
-Pour `preprod` : limiter à la branche `main`.
+Pour `dev` (préprod) : limiter à la branche `main`.
 
 ---
 

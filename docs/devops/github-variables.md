@@ -1,7 +1,7 @@
 # Variables et secrets GitHub pour le déploiement
 
 À déclarer dans **GitHub → dépôt `mikhawa/instruments` → Settings → Environments**.
-Créer deux environnements, **`preprod`** et **`production`**, et y ajouter les valeurs ci-dessous.
+Créer deux environnements, **`dev`** (préprod) et **`production`**, et y ajouter les valeurs ci-dessous.
 Chaque environnement a **ses propres valeurs**.
 
 > Ne jamais mettre ces valeurs dans le dépôt, ni dans un fichier commité.
@@ -69,7 +69,7 @@ connue du serveur (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` sur le VPS
 
 | Environnement | Déclenché par | Deployment branches and tags | Required reviewers |
 |---|---|---|---|
-| `preprod` | push sur `main` | branche `main` | — |
+| `dev` | push sur `main` | branche `main` | — |
 | `production` | tag `v*` | tags `v*` | vous-même (option payante sur un dépôt privé) |
 
 ## 5. Configuration en ligne de commande (facultatif)
@@ -77,7 +77,7 @@ connue du serveur (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` sur le VPS
 Avec [GitHub CLI](https://cli.github.com/) (`gh auth login` au préalable), par exemple pour la préprod :
 
 ```bash
-ENV=preprod
+ENV=dev
 gh secret set SSH_HOST        --env $ENV --body "vps.mondomaine.be"
 gh secret set SSH_PORT        --env $ENV --body "22"
 gh secret set SSH_USER        --env $ENV --body "utilisateur_du_site"
@@ -101,7 +101,7 @@ GitHub : ils sont uniquement sur le serveur, dans `<DEPLOY_PATH>/shared/.env.loc
 ## 7. Aide-mémoire
 
 ```
-Environnement « preprod » et « production »
+Environnement « dev » et « production »
 ├── Secrets
 │   ├── SSH_HOST
 │   ├── SSH_PORT

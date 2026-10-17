@@ -4,7 +4,7 @@
 #   push sur main     → tests → build → préprod
 #   tag v*            → tests → build → production (après validation manuelle)
 #
-# Configuration GitHub (Settings → Environments), pour « preprod » et « production » :
+# Configuration GitHub (Settings → Environments), pour « dev » (préprod) et « production » :
 #   Secrets   : SSH_HOST, SSH_PORT, SSH_USER, SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS
 #   Variables : DEPLOY_PATH, SITE_URL, PHP_BIN (facultatif), RECHARGEMENT_PHP (facultatif)
 # Procédure complète : docs/devops/vps-preprod.md
@@ -134,15 +134,15 @@ jobs:
           retention-days: 7
 
   deploy:
-    name: Déploiement (${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'préprod' }})
+    name: Déploiement (${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'dev' }})
     needs: build
     runs-on: ubuntu-latest
     environment:
-      name: ${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'preprod' }}
+      name: ${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'dev' }}
       url: ${{ vars.SITE_URL }}
     # Un seul déploiement à la fois par environnement, sans annuler celui en cours
     concurrency:
-      group: deploy-${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'preprod' }}
+      group: deploy-${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'dev' }}
       cancel-in-progress: false
     steps:
       - uses: actions/download-artifact@v4
