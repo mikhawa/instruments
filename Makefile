@@ -6,7 +6,7 @@ export UID := $(shell id -u)
 export GID := $(shell id -g)
 
 .DEFAULT_GOAL := help
-.PHONY: help build up down restart logs sh console composer db-reset fixtures test npm front-build
+.PHONY: help build up down restart logs sh console composer db-reset fixtures test lint lint-fix npm front-build
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -44,6 +44,16 @@ fixtures: ## Recharge les données de développement (vide la base !)
 
 test: ## Lance les tests PHPUnit
 	$(PHP) php bin/phpunit
+
+lint: ## Vérifie le code (PHP-CS-Fixer, lints Symfony, oxlint)
+	$(PHP) vendor/bin/php-cs-fixer check --diff
+	$(CONSOLE) lint:container
+	$(CONSOLE) lint:yaml config translations --parse-tags
+	$(CONSOLE) lint:twig templates
+	$(DC) exec node npm run lint
+
+lint-fix: ## Corrige automatiquement le style PHP (PHP-CS-Fixer)
+	$(PHP) vendor/bin/php-cs-fixer fix
 
 npm: ## Lance npm dans le front React (make npm c="install react-router")
 	$(DC) exec node npm $(c)

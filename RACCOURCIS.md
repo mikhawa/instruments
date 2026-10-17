@@ -17,6 +17,8 @@ sudo apt install make
         make help        # lister toutes les commandes
         make db-reset    # recréer la base et rejouer les migrations
         make test        # lancer PHPUnit
+        make lint        # vérifier le code (PHP-CS-Fixer, lints Symfony, oxlint)
+        make lint-fix    # corriger automatiquement le style PHP
         make sh          # ouvrir un shell dans le conteneur PHP
 
 
