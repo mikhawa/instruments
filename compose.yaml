@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=vendor/symfony/dependency-injection/Loader/schema/services.schema.json
 # Environnement de développement local — Instruments traditionnels
 # Démarrage : make up (ou docker compose up -d --build)
 name: instruments
