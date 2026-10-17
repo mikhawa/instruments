@@ -30,3 +30,10 @@ Démarrage : `make up` (ou `docker compose up -d --build`) — détails dans `do
 
 GitHub Actions (`.github/workflows/deploy.yml`) : push sur `main` → préprod, tag `v*` → production.
 Préparation du VPS CyberPanel, secrets GitHub et retour arrière : `docs/devops/vps-preprod.md`.
+
+copier le résultat dans public/. C'est plus lent et plus fragile, et cela fait doublon avec la CI.
+
+result: React est compilé par la CI (npm run build puis copie de frontend/dist/ dans public/) à chaque push sur main ; en attendant, tu peux compiler en local et envoyer frontend/dist/ par scp
+dans <DEPLOY_PATH>/current/public/. 
+
+        php bin/console assets:install public
