@@ -29,7 +29,7 @@ final class CatalogueFixtures extends Fixture implements DependentFixtureInterfa
     public const INSTRUMENT = 'instrument-';
 
     /**
-     * clé => [parent, position, [locale => [nom, slug]]]
+     * clé => [parent, position, [locale => [nom, slug]]].
      */
     private const CATEGORIES = [
         'cordes' => [null, 1, [
