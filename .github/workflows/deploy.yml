@@ -145,6 +145,27 @@ jobs:
       group: deploy-${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'dev' }}
       cancel-in-progress: false
     steps:
+      # Un secret ou une variable absent de l'environnement vaut une chaîne vide :
+      # on échoue ici avec un message clair plutôt que dans ssh plus loin
+      - name: Contrôle de la configuration
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          manquants=0
+          for nom in SSH_HOST SSH_PORT SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH SITE_URL; do
+            if [ -z "${!nom}" ]; then
+              echo "::error::« $nom » est vide ou absent de l'environnement GitHub « ${{ startsWith(github.ref, 'refs/tags/') && 'production' || 'dev' }} »"
+              manquants=1
+            fi
+          done
+          exit $manquants
+
       - uses: actions/download-artifact@v4
         with:
           name: release
