@@ -188,6 +188,8 @@ jobs:
             IdentitiesOnly yes
             StrictHostKeyChecking yes
           EOF
+          # Empreinte seule (jamais la clé) : à comparer avec authorized_keys sur le VPS
+          ssh-keygen -lf ~/.ssh/deploy
 
       - name: Envoi et activation
         env:
