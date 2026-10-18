@@ -53,10 +53,14 @@ BASE="$("$PHP" -r '
     require "vendor/autoload.php";
     (new Symfony\Component\Dotenv\Dotenv())->bootEnv(".env");
     $u = parse_url($_SERVER["DATABASE_URL"]);
+    // rawurldecode, comme Doctrine : un « + » du mot de passe reste un « + »
     file_put_contents($argv[1], sprintf("[client]\nuser=%s\npassword=%s\nhost=%s\nport=%d\n",
-        urldecode($u["user"] ?? ""), urldecode($u["pass"] ?? ""), $u["host"] ?? "localhost", $u["port"] ?? 3306));
+        rawurldecode($u["user"] ?? ""), rawurldecode($u["pass"] ?? ""), $u["host"] ?? "localhost", $u["port"] ?? 3306));
+    // Diagnostic sur stderr, sans le mot de passe
+    fprintf(STDERR, "DATABASE_URL lue : %s@%s:%s/%s\n", $u["user"] ?? "?", $u["host"] ?? "?", $u["port"] ?? "?", ltrim($u["path"] ?? "", "/"));
     echo ltrim($u["path"] ?? "", "/");
 ' "$IDENTIFIANTS")"
+[[ -n "$BASE" ]] || { echo "Aucun nom de base dans DATABASE_URL (vérifier $SHARED/.env.local)" >&2; exit 1; }
 if command -v mysqldump >/dev/null 2>&1; then
     DUMP="$SHARED/sauvegardes/${BASE}_$(date +%Y%m%d-%H%M%S).sql.gz"
     mysqldump --defaults-extra-file="$IDENTIFIANTS" --single-transaction --routines --no-tablespaces "$BASE" | gzip > "$DUMP"
