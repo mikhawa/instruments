@@ -19,6 +19,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Security\Http\Logout\LogoutUrlGenerator;
 
 /**
  * Back-office : accès réservé aux administrateurs (voir aussi access_control).
@@ -34,6 +35,8 @@ final class DashboardController extends AbstractDashboardController
         private readonly CommandeRepository $commandeRepository,
         #[Autowire(env: 'FRONT_URL')]
         private readonly string $urlSite,
+        #[Autowire(service: 'security.logout_url_generator')]
+        private readonly LogoutUrlGenerator $logoutUrlGenerator,
     ) {
     }
 
@@ -80,14 +83,27 @@ final class DashboardController extends AbstractDashboardController
         yield MenuItem::linkTo(CommandeCrudController::class, 'Commandes', 'fa fa-receipt');
 
         yield MenuItem::section();
-        yield MenuItem::linkToLogout('Déconnexion', 'fa fa-sign-out');
+        yield MenuItem::linkToUrl('Déconnexion', 'fa fa-sign-out', $this->urlDeconnexion());
     }
 
     public function configureUserMenu(UserInterface $user): UserMenu
     {
+        // Remplace le lien de déconnexion par défaut d'EasyAdmin (voir urlDeconnexion())
         return parent::configureUserMenu($user)
-            ->addMenuItems([
+            ->setMenuItems([
                 MenuItem::linkToUrl('Retour au site', 'fa fa-arrow-left', $this->urlSite),
+                MenuItem::section(),
+                MenuItem::linkToUrl('Déconnexion', 'fa fa-sign-out', $this->urlDeconnexion()),
             ]);
+    }
+
+    /**
+     * Pare-feu « admin » imposé : avec la session partagée, un admin connecté depuis React
+     * porte un jeton du pare-feu « main », et linkToLogout() pointerait vers /api/logout
+     * (POST uniquement). La session étant commune, /admin/logout déconnecte des deux côtés.
+     */
+    private function urlDeconnexion(): string
+    {
+        return $this->logoutUrlGenerator->getLogoutPath('admin');
     }
 }
