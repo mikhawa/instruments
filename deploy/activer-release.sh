@@ -87,6 +87,11 @@ if [[ -n "${RECHARGEMENT_PHP:-}" ]]; then
     eval "$RECHARGEMENT_PHP"
 fi
 
+etape "Rechargement du worker Messenger"
+# Le worker (cron, voir docs/devops/vps-preprod.md §6) termine son message en cours puis s'arrête ;
+# le cron le relance sur la nouvelle version. Un échec ne doit pas faire échouer le déploiement.
+"$PHP" "$DEPLOY_PATH/current/bin/console" messenger:stop-workers || echo "messenger:stop-workers a échoué : le worker passera à la nouvelle version à son prochain redémarrage"
+
 etape "Nettoyage des anciennes versions"
 ls -1dt "$DEPLOY_PATH"/releases/*/ | tail -n +"$((VERSIONS_CONSERVEES + 1))" | xargs -r rm -rf
 ls -1dt "$DEPLOY_PATH"/releases/*/

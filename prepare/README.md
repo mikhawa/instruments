@@ -50,4 +50,25 @@ Le projet vend des objets **chers, fragiles, souvent uniques**, à un public de 
 | D11 | Pays de livraison | BE · UE · monde | **UE** (v1), monde plus tard |
 | D12 | Construire ou utiliser une plateforme | maison · Sylius · SaaS | **maison** (le socle existe déjà) |
 
+### ✅ Décisions validées le 2026-10-19
+
+Toutes les options de la colonne « Recommandé » sont **retenues** (D1 à D12). La réalisation commence par la phase 0 de [08-feuille-de-route.md](08-feuille-de-route.md).
+
+### Phase 0 — À faire hors code (responsable : porteur du projet)
+
+**0.2 — Rendez-vous avec le comptable** : questions à poser
+- [ ] Prix de référence **TTC identique dans toute l'UE** ou HT fixe ? (02 §6)
+- [ ] Quels instruments relèvent du **régime de la marge** (occasion, antiquités > 100 ans, objets de collection) ? Quelles pièces justificatives d'achat faut-il conserver ? (06 §1.2)
+- [ ] Inscription à l'**OSS** dès maintenant ou au dépassement du seuil de 10 000 € ? (06 §1.1)
+- [ ] Logiciel comptable utilisé, et dispose-t-il d'une **API** (factures, Peppol) ? Sinon, factures générées par le site (dompdf) ? (06 §2)
+- [ ] Ventes B2B en Belgique prévues ? Si oui : point d'accès **Peppol** (06 §1.3)
+- [ ] Traitement comptable de l'**acompte** et des **arrhes** (04 §6) ; durée de conservation des factures
+
+**0.3 — Compte Mollie et pages légales**
+- [ ] Créer le compte Mollie (numéro BCE, IBAN, pièce d'identité du gérant) et récupérer la **clé de test** `test_…`
+- [ ] Activer en test : Bancontact, cartes, Apple Pay, PayPal (lier le compte PayPal), virement
+- [ ] Rédiger les **mentions légales** et des **CGV provisoires** (rétractation de 14 jours, garanties neuf / occasion, livraison) : Mollie les exige pour valider le site
+- [ ] Ouvrir (ou confirmer) un compte bancaire professionnel pour les virements SEPA directs
+- [ ] Prendre contact avec le **SPF Santé publique — service CITES** au sujet des matériaux présents dans le stock actuel (06 §4)
+
 > Ces documents restent un **support de décision**. Les montants (commissions, tarifs) sont **indicatifs** et à vérifier sur les grilles tarifaires en vigueur. Les points fiscaux et juridiques sont à **valider avec un comptable ou un juriste** belge.
