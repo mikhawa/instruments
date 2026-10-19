@@ -38,6 +38,7 @@ final class CommandeCrudController extends AbstractCrudController
         'Livree' => 'success',
         'Annulee' => 'danger',
         'Retournee' => 'dark',
+        'Remboursee' => 'secondary',
     ];
 
     public static function getEntityFqcn(): string

@@ -240,9 +240,10 @@ stateDiagram-v2
     payee --> annulee : annulation (remboursement)
     en_preparation --> annulee
     livree --> retournee : retour client
-    annulee --> [*]
+    annulee --> remboursee : remboursement
+    retournee --> remboursee : remboursement
     livree --> [*]
-    retournee --> [*]
+    remboursee --> [*]
 ```
 
 | Transition | Effet sur `stock` | `mouvement_stock` |
@@ -251,6 +252,9 @@ stateDiagram-v2
 | → `annulee` (avant expédition) | `quantite_reservee -= n` | `liberation` |
 | → `expediee` | `quantite -= n`, `quantite_reservee -= n` | `sortie` |
 | → `retournee` | `quantite += n` (si revendable) | `retour` |
+| → `remboursee` | aucun (le stock a déjà été remis à jour) | — |
+
+Transitions Workflow : `payer`, `expirer`, `annuler`, `preparer`, `expedier`, `livrer`, `retourner`, `rembourser`. `remboursee` est l'état final des commandes annulées après paiement ou retournées.
 
 Règles :
 - Les transitions passent par **Symfony Workflow** (`config/packages/workflow.yaml`), jamais par une modification directe du statut.

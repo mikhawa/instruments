@@ -20,6 +20,7 @@ enum StatutCommande: string implements TranslatableInterface
     case Livree = 'livree';
     case Annulee = 'annulee';
     case Retournee = 'retournee';
+    case Remboursee = 'remboursee';
 
     /**
      * Libellé lisible (domaine de traduction « enums »).

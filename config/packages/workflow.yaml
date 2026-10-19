@@ -1,0 +1,51 @@
+framework:
+    workflows:
+        # Cycle de vie d'une commande (voir docs/architecture/database-schema.md).
+        # Le statut ne change que par ces transitions, jamais par une écriture directe.
+        commande:
+            type: state_machine
+            audit_trail:
+                enabled: true
+            marking_store:
+                type: method
+                property: statut
+            supports:
+                - App\Entity\Commande
+            initial_marking: en_attente_paiement
+            places:
+                - en_attente_paiement
+                - payee
+                - en_preparation
+                - expediee
+                - livree
+                - annulee
+                - retournee
+                - remboursee
+            transitions:
+                payer:
+                    from: en_attente_paiement
+                    to: payee
+                expirer:
+                    from: en_attente_paiement
+                    to: annulee
+                annuler:
+                    from: [en_attente_paiement, payee, en_preparation]
+                    to: annulee
+                preparer:
+                    from: payee
+                    to: en_preparation
+                expedier:
+                    from: en_preparation
+                    to: expediee
+                livrer:
+                    from: expediee
+                    to: livree
+                retourner:
+                    from: livree
+                    to: retournee
+                rembourser:
+                    # Seule une commande réellement payée peut être remboursée
+                    # (une commande expirée sans paiement reste « annulee »)
+                    guard: 'subject.getPaidAt() !== null'
+                    from: [annulee, retournee]
+                    to: remboursee

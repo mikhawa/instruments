@@ -6,7 +6,7 @@ export UID := $(shell id -u)
 export GID := $(shell id -g)
 
 .DEFAULT_GOAL := help
-.PHONY: help build up down restart logs sh console composer db-reset fixtures test lint lint-fix npm front-build
+.PHONY: help build up down restart logs sh console composer db-reset fixtures test lint lint-fix worker npm front-build
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -54,6 +54,9 @@ lint: ## Vérifie le code (PHP-CS-Fixer, lints Symfony, oxlint)
 
 lint-fix: ## Corrige automatiquement le style PHP (PHP-CS-Fixer)
 	$(PHP) vendor/bin/php-cs-fixer fix
+
+worker: ## Lance le worker Messenger + Scheduler (e-mails async, tâches planifiées)
+	$(CONSOLE) messenger:consume async scheduler_default -vv --time-limit=3600 --memory-limit=128M
 
 npm: ## Lance npm dans le front React (make npm c="install react-router")
 	$(DC) exec node npm $(c)

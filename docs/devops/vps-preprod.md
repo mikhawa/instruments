@@ -336,3 +336,45 @@ gunzip < shared/sauvegardes/<base>_<date>.sql.gz | mysql <base>
   actuel se limite aux lints, aux migrations sur une base vierge et à `doctrine:schema:validate`.
 - **Journaux** : `shared/var/log/prod.log`, conservés d'une version à l'autre. Journaux
   d'OpenLiteSpeed : `/home/<domaine>/logs/`.
+
+## 6. Worker Messenger et tâches planifiées (cron)
+
+Les e-mails (`SendEmailMessage`) sont routés vers le transport `async` (`config/packages/messenger.yaml`),
+dont le DSN par défaut est `MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=0` (table
+`messenger_messages`, créée par une migration). **Sans worker, ces messages restent en file
+d'attente et ne partent jamais.** Le Scheduler (`src/Scheduler/ProgrammeTaches.php`, transport
+`scheduler_default`) a besoin du même worker pour déclencher les tâches planifiées (expiration
+des commandes non payées, purge des paniers, relances).
+
+Sur CyberPanel, ni Docker ni `systemd` ne sont garantis : on utilise une tâche **cron** qui
+relance le worker toutes les minutes. `flock -n` empêche de lancer un second worker tant que le
+premier tourne ; `--time-limit` le fait s'arrêter proprement (le cron le relance) et
+`--memory-limit` évite les fuites de mémoire.
+
+Avec l'utilisateur du site (`crontab -e`) :
+
+```cron
+* * * * * flock -n /tmp/instruments-worker.lock /usr/local/lsws/lsphp83/bin/php /home/<domaine>/instruments/current/bin/console messenger:consume async scheduler_default --time-limit=300 --memory-limit=128M >> /home/<domaine>/instruments/shared/var/log/worker.log 2>&1
+```
+
+Points importants :
+
+- Le chemin passe par `current/` : à chaque redémarrage du worker, c'est la version en ligne qui est chargée.
+- Le journal est dans `shared/var/log/` (conservé d'une version à l'autre). Prévoir sa rotation
+  (`logrotate`, ou `: > worker.log` de temps en temps) : sans `-v`, il reste très court.
+- Verrou : un seul worker à la fois. Si le serveur est partagé entre plusieurs environnements
+  (préprod et production sur le même compte), utiliser un fichier de verrou **par environnement**
+  (`/tmp/instruments-worker-preprod.lock`).
+- Intervalle : 1 minute (e-mails envoyés au plus tard 1 minute après). Un cron toutes les 5 minutes
+  convient si ce délai est acceptable ; adapter alors `--time-limit` (ex. `--time-limit=290`).
+- Après un déploiement, `deploy/activer-release.sh` lance `messenger:stop-workers` : le worker
+  termine son message en cours puis s'arrête, et le cron le relance avec le nouveau code
+  (au plus 1 minute plus tard). Un échec de cette commande ne fait pas échouer le déploiement.
+- Messages en échec : après 3 tentatives ils vont dans le transport `failed`.
+  `php bin/console messenger:failed:show` (depuis `current/`) les liste, `messenger:failed:retry` les rejoue.
+- Vérification : `php bin/console messenger:stats` doit montrer une file `async` qui se vide,
+  et `php bin/console debug:scheduler` liste les tâches planifiées.
+- `RECHARGEMENT_PHP` (`pkill -x lsphp`, §5) ne touche pas le worker : il cible les processus
+  web `lsphp`, pas le binaire CLI lancé par le cron.
+
+En développement (Docker), `make worker` lance le même worker dans le conteneur PHP.
