@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Entity\Commande;
+use Doctrine\ORM\EntityManagerInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Filters;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
-use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\CollectionField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
@@ -19,11 +20,20 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\FormField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\MoneyField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
+use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Workflow\Exception\LogicException;
+use Symfony\Component\Workflow\WorkflowInterface;
 
 /**
  * Consultation des commandes.
  * Création et suppression interdites ; seul le numéro de suivi est modifiable.
- * Les changements de statut passeront par Symfony Workflow (actions dédiées à venir).
+ * Les changements de statut passent par le workflow « commande » (boutons du détail) ; le stock,
+ * les dates et les e-mails sont gérés par les écouteurs du workflow, pas ici.
+ * Les transitions « payer » et « rembourser » relèvent du paiement et ne sont pas exposées.
  *
  * @extends AbstractCrudController<Commande>
  */
@@ -41,6 +51,24 @@ final class CommandeCrudController extends AbstractCrudController
         'Remboursee' => 'secondary',
     ];
 
+    /** Transitions proposées à l'administrateur : nom => [libellé, icône, style du bouton] */
+    private const TRANSITIONS = [
+        'preparer' => ['Préparer la commande', 'fa fa-box-open', 'btn btn-info'],
+        'expedier' => ['Marquer comme expédiée', 'fa fa-truck', 'btn btn-primary'],
+        'livrer' => ['Marquer comme livrée', 'fa fa-circle-check', 'btn btn-success'],
+        'retourner' => ['Enregistrer un retour', 'fa fa-rotate-left', 'btn btn-secondary'],
+        'annuler' => ['Annuler la commande', 'fa fa-ban', 'btn btn-danger'],
+    ];
+
+    public function __construct(
+        #[Target('commande')]
+        private readonly WorkflowInterface $workflow,
+        private readonly AdminUrlGenerator $adminUrlGenerator,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly CsrfTokenManagerInterface $csrfTokenManager,
+    ) {
+    }
+
     public static function getEntityFqcn(): string
     {
         return Commande::class;
@@ -52,14 +80,85 @@ final class CommandeCrudController extends AbstractCrudController
             ->setEntityLabelInSingular('Commande')
             ->setEntityLabelInPlural('Commandes')
             ->setDefaultSort(['createdAt' => 'DESC'])
-            ->setSearchFields(['numero', 'numeroSuivi', 'utilisateur.email', 'utilisateur.nom']);
+            ->setSearchFields(['numero', 'numeroSuivi', 'email', 'utilisateur.email', 'utilisateur.nom']);
     }
 
     public function configureActions(Actions $actions): Actions
     {
-        return $actions
+        $actions
             ->add(Crud::PAGE_INDEX, Action::DETAIL)
             ->disable(Action::NEW, Action::DELETE, Action::BATCH_DELETE);
+
+        foreach (self::TRANSITIONS as $transition => [$libelle, $icone, $classe]) {
+            $action = Action::new('transition_'.$transition, $libelle, $icone)
+                ->linkToUrl(fn (Commande $commande): string => $this->urlTransition($commande, $transition))
+                ->renderAsForm()
+                ->setCssClass($classe)
+                ->displayIf(fn (Commande $commande): bool => $this->workflow->can($commande, $transition));
+            if ('annuler' === $transition) {
+                $action->askConfirmation('Annuler cette commande ? Le stock réservé sera libéré.', 'Annuler la commande');
+            }
+            $actions->add(Crud::PAGE_DETAIL, $action);
+        }
+
+        return $actions;
+    }
+
+    /**
+     * Applique une transition du workflow (POST + jeton CSRF propre à la commande et à la transition).
+     * Le stock, les dates et les e-mails sont pris en charge par les écouteurs du workflow.
+     */
+    #[AdminRoute(path: '/{entityId}/transition', name: 'transition', options: ['methods' => ['POST']])]
+    public function appliquerTransition(Request $request): RedirectResponse
+    {
+        $commande = $this->entityManager->find(Commande::class, (int) $request->attributes->get('entityId', $request->query->get('entityId')));
+        $transition = (string) $request->query->get('transition');
+        if (!$commande instanceof Commande || !isset(self::TRANSITIONS[$transition])) {
+            throw $this->createNotFoundException();
+        }
+        if (!$this->isCsrfTokenValid($this->idJeton($commande, $transition), (string) $request->query->get('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
+        $libelle = self::TRANSITIONS[$transition][0];
+        if ('expedier' === $transition && '' === trim((string) $commande->getNumeroSuivi())) {
+            $this->addFlash('danger', 'Saisissez le numéro de suivi (bouton « Modifier ») avant de marquer la commande comme expédiée.');
+        } elseif (!$this->workflow->can($commande, $transition)) {
+            $this->addFlash('danger', sprintf('« %s » n\'est pas possible pour la commande %s dans son état actuel.', $libelle, $commande->getNumero()));
+        } else {
+            try {
+                $this->workflow->apply($commande, $transition);
+                $this->entityManager->flush();
+                $this->addFlash('success', sprintf('Commande %s : « %s » effectué.', $commande->getNumero(), $libelle));
+            } catch (LogicException|\DomainException $exception) {
+                $this->addFlash('danger', sprintf('« %s » impossible pour la commande %s : %s', $libelle, $commande->getNumero(), $exception->getMessage()));
+            }
+        }
+
+        return $this->redirect($this->adminUrlGenerator
+            ->unsetAll()
+            ->setController(self::class)
+            ->setAction(Action::DETAIL)
+            ->setEntityId($commande->getId())
+            ->generateUrl());
+    }
+
+    private function urlTransition(Commande $commande, string $transition): string
+    {
+        return $this->adminUrlGenerator
+            ->unsetAll()
+            ->setController(self::class)
+            ->setRoute('admin_commande_transition', [
+                'entityId' => $commande->getId(),
+                'transition' => $transition,
+                '_token' => $this->csrfTokenManager->getToken($this->idJeton($commande, $transition))->getValue(),
+            ])
+            ->generateUrl();
+    }
+
+    private function idJeton(Commande $commande, string $transition): string
+    {
+        return 'commande_'.$commande->getId().'_'.$transition;
     }
 
     public function configureFilters(Filters $filters): Filters
@@ -83,7 +182,13 @@ final class CommandeCrudController extends AbstractCrudController
 
         yield FormField::addFieldset('Commande');
         yield TextField::new('numero', 'Numéro')->setDisabled();
-        yield AssociationField::new('utilisateur', 'Client')->hideOnForm();
+        yield TextField::new('nomClient', 'Client')
+            ->formatValue(static fn (string $nom, Commande $commande): string => $commande->isInvite()
+                ? 'Invité' : $nom)
+            ->hideOnForm()
+            ->setSortable(false);
+        yield TextField::new('email', 'E-mail')->hideOnForm();
+        yield TextField::new('telephone', 'Téléphone')->hideOnForm()->hideOnIndex();
         yield ChoiceField::new('statut', 'Statut')
             ->renderAsBadges(self::COULEURS_STATUTS)
             ->hideOnForm();
@@ -95,8 +200,12 @@ final class CommandeCrudController extends AbstractCrudController
         yield CollectionField::new('lignes', 'Articles')->onlyOnDetail();
         yield MoneyField::new('totalHt', 'Total HT')->setCurrency('EUR')->setStoredAsCents()->onlyOnDetail();
         yield MoneyField::new('totalTva', 'TVA')->setCurrency('EUR')->setStoredAsCents()->onlyOnDetail();
+        yield TextField::new('libelleLivraison', 'Mode de livraison')->onlyOnDetail();
         yield MoneyField::new('fraisPortTtc', 'Frais de port TTC')->setCurrency('EUR')->setStoredAsCents()->onlyOnDetail();
         yield TextField::new('locale', 'Langue')->onlyOnDetail();
+        yield TextField::new('canal', 'Canal')->onlyOnDetail();
+        yield TextField::new('cgvVersion', 'Version des CGV acceptées')->onlyOnDetail();
+        yield DateTimeField::new('cgvAccepteesAt', 'CGV acceptées le')->onlyOnDetail();
         yield TextareaField::new('commentaireClient', 'Commentaire du client')->onlyOnDetail();
 
         yield FormField::addFieldset('Adresses')->hideOnForm();
@@ -108,6 +217,7 @@ final class CommandeCrudController extends AbstractCrudController
             ->formatValue(static fn (array $adresse): string => $formatterAdresse($adresse));
 
         yield FormField::addFieldset('Suivi')->hideOnForm();
+        yield DateTimeField::new('expireAt', 'Réservation valable jusqu\'au')->onlyOnDetail();
         yield DateTimeField::new('paidAt', 'Payée le')->onlyOnDetail();
         yield DateTimeField::new('shippedAt', 'Expédiée le')->onlyOnDetail();
         yield DateTimeField::new('deliveredAt', 'Livrée le')->onlyOnDetail();

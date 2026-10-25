@@ -10,15 +10,19 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Commande client. Les adresses sont des copies figées au moment de l'achat.
+ * Commande client, avec ou sans compte (invité : utilisateur NULL, e-mail obligatoire).
+ * Les adresses et le mode de livraison sont des copies figées au moment de l'achat.
  * Montants en centimes. Le statut évolue uniquement via Symfony Workflow.
  */
 #[ORM\Entity(repositoryClass: CommandeRepository::class)]
 #[ORM\Index(name: 'idx_commande_utilisateur_date', columns: ['utilisateur_id', 'created_at'])]
 #[ORM\Index(name: 'idx_commande_statut_date', columns: ['statut', 'created_at'])]
+#[ORM\Index(name: 'idx_commande_statut_expiration', columns: ['statut', 'expire_at'])]
 class Commande
 {
     #[ORM\Id]
@@ -30,10 +34,59 @@ class Commande
     #[ORM\Column(length: 20, unique: true)]
     private ?string $numero = null;
 
-    /** RESTRICT : une commande doit être conservée (obligations comptables) */
+    public const CANAL_SITE = 'site';
+
+    /** NULL = commande invité ; RESTRICT : une commande doit être conservée (obligations comptables) */
     #[ORM\ManyToOne(inversedBy: 'commandes')]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'RESTRICT')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
     private ?Utilisateur $utilisateur = null;
+
+    /** Adresse de contact (celle du compte, ou saisie par l'invité) */
+    #[ORM\Column(length: 180)]
+    #[Assert\NotBlank]
+    #[Assert\Email]
+    #[Assert\Length(max: 180)]
+    private ?string $email = null;
+
+    #[ORM\Column(length: 30, nullable: true)]
+    #[Assert\Length(max: 30)]
+    private ?string $telephone = null;
+
+    /** Clé secrète du lien « suivre ma commande » envoyé par e-mail (UUID v4 aléatoire) */
+    #[ORM\Column(type: UuidType::NAME, unique: true)]
+    private Uuid $jetonSuivi;
+
+    /** Fin de la réservation du stock tant que la commande n'est pas payée */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $expireAt = null;
+
+    /** Version des CGV acceptées et date d'acceptation (preuve du consentement) */
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $cgvVersion = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $cgvAccepteesAt = null;
+
+    /** Origine : site (plus tard : admin, reverb…) */
+    #[ORM\Column(length: 20, options: ['default' => self::CANAL_SITE])]
+    private string $canal = self::CANAL_SITE;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?ModeLivraison $modeLivraison = null;
+
+    /** Copie du nom du mode de livraison */
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $libelleLivraison = null;
+
+    /** Panier d'origine : une nouvelle commande du même panier annule la précédente non payée */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?Panier $panier = null;
+
+    /** En-tête Idempotency-Key : un double envoi renvoie la même commande */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $cleIdempotence = null;
 
     #[ORM\Column(length: 30, enumType: StatutCommande::class)]
     private StatutCommande $statut = StatutCommande::EnAttentePaiement;
@@ -98,6 +151,7 @@ class Commande
     {
         $this->lignes = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $this->jetonSuivi = Uuid::v4();
     }
 
     /**
@@ -106,14 +160,29 @@ class Commande
     public function recalculerTotaux(): void
     {
         $totalHt = 0;
-        $totalTva = 0;
+        $totalTtcLignes = 0;
         foreach ($this->lignes as $ligne) {
             $totalHt += $ligne->getTotalHt();
-            $totalTva += $ligne->getMontantTva();
+            $totalTtcLignes += $ligne->getTotalTtc();
         }
         $this->totalHt = $totalHt;
-        $this->totalTva = $totalTva;
-        $this->totalTtc = $totalHt + $totalTva + $this->fraisPortTtc;
+        $this->totalTva = $totalTtcLignes - $totalHt;
+        $this->totalTtc = $totalTtcLignes + $this->fraisPortTtc;
+    }
+
+    /**
+     * Libellé du client : nom du compte, sinon e-mail de l'invité.
+     */
+    public function getNomClient(): string
+    {
+        return null !== $this->utilisateur
+            ? trim($this->utilisateur->getPrenom().' '.$this->utilisateur->getNom())
+            : (string) $this->email;
+    }
+
+    public function isInvite(): bool
+    {
+        return null === $this->utilisateur;
     }
 
     public function getId(): ?int
@@ -138,9 +207,121 @@ class Commande
         return $this->utilisateur;
     }
 
-    public function setUtilisateur(Utilisateur $utilisateur): static
+    public function setUtilisateur(?Utilisateur $utilisateur): static
     {
         $this->utilisateur = $utilisateur;
+        if (null !== $utilisateur) {
+            $this->email = $utilisateur->getEmail();
+        }
+
+        return $this;
+    }
+
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(string $email): static
+    {
+        $this->email = mb_strtolower(trim($email));
+
+        return $this;
+    }
+
+    public function getTelephone(): ?string
+    {
+        return $this->telephone;
+    }
+
+    public function setTelephone(?string $telephone): static
+    {
+        $this->telephone = $telephone;
+
+        return $this;
+    }
+
+    public function getJetonSuivi(): Uuid
+    {
+        return $this->jetonSuivi;
+    }
+
+    public function getExpireAt(): ?\DateTimeImmutable
+    {
+        return $this->expireAt;
+    }
+
+    public function setExpireAt(?\DateTimeImmutable $expireAt): static
+    {
+        $this->expireAt = $expireAt;
+
+        return $this;
+    }
+
+    public function getCgvVersion(): ?string
+    {
+        return $this->cgvVersion;
+    }
+
+    public function getCgvAccepteesAt(): ?\DateTimeImmutable
+    {
+        return $this->cgvAccepteesAt;
+    }
+
+    public function accepterCgv(string $version): static
+    {
+        $this->cgvVersion = $version;
+        $this->cgvAccepteesAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+
+        return $this;
+    }
+
+    public function getCanal(): string
+    {
+        return $this->canal;
+    }
+
+    public function getModeLivraison(): ?ModeLivraison
+    {
+        return $this->modeLivraison;
+    }
+
+    public function getLibelleLivraison(): ?string
+    {
+        return $this->libelleLivraison;
+    }
+
+    /**
+     * Mode de livraison choisi et frais de port correspondants.
+     */
+    public function choisirLivraison(ModeLivraison $mode, int $fraisPortTtc): static
+    {
+        $this->modeLivraison = $mode;
+        $this->libelleLivraison = $mode->getNom();
+
+        return $this->setFraisPortTtc($fraisPortTtc);
+    }
+
+    public function getPanier(): ?Panier
+    {
+        return $this->panier;
+    }
+
+    public function setPanier(?Panier $panier): static
+    {
+        $this->panier = $panier;
+
+        return $this;
+    }
+
+    public function getCleIdempotence(): ?string
+    {
+        return $this->cleIdempotence;
+    }
+
+    public function setCleIdempotence(?string $cleIdempotence): static
+    {
+        $this->cleIdempotence = $cleIdempotence;
 
         return $this;
     }

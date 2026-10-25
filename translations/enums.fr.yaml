@@ -1,4 +1,4 @@
-# Libellés des énumérations (EtatInstrument, StatutCommande)
+# Libellés des énumérations (EtatInstrument, StatutCommande, ClasseLivraison)
 etat_instrument:
     neuf: Neuf
     occasion: Occasion
@@ -14,3 +14,10 @@ statut_commande:
     annulee: Annulée
     retournee: Retournée
     remboursee: Remboursée
+
+classe_livraison:
+    petit_colis: Petit colis
+    colis: Colis
+    hors_norme: Hors norme
+    transport_dedie: Transport dédié (sur devis)
+    retrait_uniquement: Retrait à l'atelier uniquement

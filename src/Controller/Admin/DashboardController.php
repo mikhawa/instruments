@@ -118,6 +118,11 @@ final class DashboardController extends AbstractDashboardController
         yield MenuItem::section('Ventes');
         yield MenuItem::linkTo(CommandeCrudController::class, 'Commandes', 'fa fa-receipt');
 
+        yield MenuItem::section('Livraison');
+        yield MenuItem::linkTo(ZoneLivraisonCrudController::class, 'Zones', 'fa fa-earth-europe');
+        yield MenuItem::linkTo(ModeLivraisonCrudController::class, 'Modes de livraison', 'fa fa-truck');
+        yield MenuItem::linkTo(TarifLivraisonCrudController::class, 'Tarifs', 'fa fa-tags');
+
         yield MenuItem::section();
         yield MenuItem::linkToUrl('Déconnexion', 'fa fa-sign-out', $this->urlDeconnexion());
     }
