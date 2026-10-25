@@ -1,0 +1,8 @@
+{% extends 'emails/commande/_base.html.twig' %}
+
+{% block contenu %}
+    <h1 style="font-size:22px;margin:0 0 12px;">Votre commande est annulée</h1>
+    <p>Votre commande <strong>{{ commande.numero }}</strong> a été annulée.
+        {% if commande.paidAt %}Le remboursement vous sera adressé sur le moyen de paiement utilisé.{% endif %}</p>
+    <p style="font-size:14px;">Pour toute question, répondez simplement à cet e-mail.</p>
+{% endblock %}

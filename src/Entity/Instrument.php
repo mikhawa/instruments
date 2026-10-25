@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Entity\Trait\HorodatageTrait;
+use App\Enum\ClasseLivraison;
 use App\Enum\EtatInstrument;
 use App\Repository\InstrumentRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -123,6 +124,11 @@ class Instrument
     #[Groups(['instrument:read', 'instrument:write'])]
     #[Assert\Length(max: 100)]
     private ?string $dimensions = null;
+
+    /** Gabarit d'expédition : choisit la ligne de la grille tarifaire */
+    #[ORM\Column(length: 20, enumType: ClasseLivraison::class, options: ['default' => 'colis'])]
+    #[Groups(['instrument:read', 'instrument:write'])]
+    private ClasseLivraison $classeLivraison = ClasseLivraison::Colis;
 
     #[ORM\Column(name: 'is_published', options: ['default' => false])]
     #[Groups(['instrument:read', 'instrument:write'])]
@@ -336,6 +342,18 @@ class Instrument
     public function setDimensions(?string $dimensions): static
     {
         $this->dimensions = $dimensions;
+
+        return $this;
+    }
+
+    public function getClasseLivraison(): ClasseLivraison
+    {
+        return $this->classeLivraison;
+    }
+
+    public function setClasseLivraison(ClasseLivraison $classeLivraison): static
+    {
+        $this->classeLivraison = $classeLivraison;
 
         return $this;
     }

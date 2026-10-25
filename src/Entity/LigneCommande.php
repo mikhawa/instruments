@@ -12,6 +12,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 /**
  * Ligne de commande. Référence, libellé, prix et TVA sont recopiés depuis
  * l'instrument : la ligne reste exacte même si l'instrument change ou disparaît.
+ * Même règle de calcul que le panier (CalculateurPanier) : prix TTC unitaire arrondi,
+ * multiplié par la quantité ; TVA = TTC − HT.
  */
 #[ORM\Entity(repositoryClass: LigneCommandeRepository::class)]
 class LigneCommande
@@ -51,6 +53,14 @@ class LigneCommande
     #[ORM\Column(options: ['unsigned' => true])]
     private int $totalHt;
 
+    /** Centimes : prix TTC affiché au client, arrondi au centime */
+    #[ORM\Column(options: ['unsigned' => true])]
+    private int $prixUnitaireTtc;
+
+    /** Centimes : prix_unitaire_ttc × quantite */
+    #[ORM\Column(options: ['unsigned' => true])]
+    private int $totalTtc;
+
     /**
      * Crée une ligne en figeant les données de l'instrument dans la langue de la commande.
      */
@@ -69,14 +79,16 @@ class LigneCommande
         $this->tauxTva = $instrument->getTauxTva();
         $this->quantite = $quantite;
         $this->totalHt = $this->prixUnitaireHt * $quantite;
+        $this->prixUnitaireTtc = (int) $instrument->getPrixTtc();
+        $this->totalTtc = $this->prixUnitaireTtc * $quantite;
     }
 
     /**
-     * Montant de TVA de la ligne en centimes, arrondi au centime.
+     * Montant de TVA de la ligne en centimes.
      */
     public function getMontantTva(): int
     {
-        return (int) round($this->totalHt * $this->tauxTva / 10000);
+        return $this->totalTtc - $this->totalHt;
     }
 
     /**
@@ -137,5 +149,15 @@ class LigneCommande
     public function getTotalHt(): int
     {
         return $this->totalHt;
+    }
+
+    public function getPrixUnitaireTtc(): int
+    {
+        return $this->prixUnitaireTtc;
+    }
+
+    public function getTotalTtc(): int
+    {
+        return $this->totalTtc;
     }
 }

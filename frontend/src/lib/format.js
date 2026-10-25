@@ -93,6 +93,13 @@ export function cheminInstrument(instrument, locale = LOCALE_PAR_DEFAUT) {
 }
 
 /**
+ * URL de la fiche depuis un résumé { id, slug } (panier) : /instruments/1-oud-turc.
+ */
+export function cheminInstrumentResume(instrument) {
+  return `/instruments/${instrument.id}${instrument.slug ? `-${instrument.slug}` : ''}`
+}
+
+/**
  * Taux de TVA en points de base → « 21 % ».
  */
 export function formaterTauxTva(pointsDeBase, locale = LOCALE_PAR_DEFAUT) {

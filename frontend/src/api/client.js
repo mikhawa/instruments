@@ -57,13 +57,13 @@ export async function fetchCollection(chemin, signal) {
  * Ne lève pas d'exception : renvoie { ok, status, corps } pour laisser l'appelant décider.
  *
  * @param {string} chemin
- * @param {{ method?: string, corps?: object, signal?: AbortSignal }} [options]
+ * @param {{ method?: string, corps?: object, contentType?: string, signal?: AbortSignal }} [options]
  * @returns {Promise<{ ok: boolean, status: number, corps: object | null }>}
  */
-export async function envoyerJson(chemin, { method = 'POST', corps, signal } = {}) {
+export async function envoyerJson(chemin, { method = 'POST', corps, contentType = 'application/json', signal } = {}) {
   const reponse = await fetch(chemin, {
     method,
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: { 'Content-Type': contentType, Accept: 'application/json' },
     credentials: 'same-origin',
     body: corps === undefined ? undefined : JSON.stringify(corps),
     signal,

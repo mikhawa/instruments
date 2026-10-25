@@ -26,7 +26,7 @@ final class CommandeWorkflowTest extends KernelTestCase
 
     public function testMarquageInitial(): void
     {
-        $commande = new Commande();
+        $commande = $this->commande();
 
         self::assertSame(StatutCommande::EnAttentePaiement, $commande->getStatut());
         self::assertSame(['en_attente_paiement' => 1], $this->workflow->getMarking($commande)->getPlaces());
@@ -34,7 +34,7 @@ final class CommandeWorkflowTest extends KernelTestCase
 
     public function testParcoursComplet(): void
     {
-        $commande = new Commande();
+        $commande = $this->commande();
 
         $etapes = [
             'payer' => StatutCommande::Payee,
@@ -61,7 +61,7 @@ final class CommandeWorkflowTest extends KernelTestCase
 
     public function testCommandeExpireeSansPaiementNonRemboursable(): void
     {
-        $commande = new Commande();
+        $commande = $this->commande();
 
         $this->workflow->apply($commande, 'expirer');
         self::assertSame(StatutCommande::Annulee, $commande->getStatut());
@@ -71,7 +71,7 @@ final class CommandeWorkflowTest extends KernelTestCase
 
     public function testAnnulationApresPaiementPuisRemboursement(): void
     {
-        $commande = new Commande();
+        $commande = $this->commande();
 
         $this->workflow->apply($commande, 'payer');
         $commande->setPaidAt(new \DateTimeImmutable());
@@ -84,7 +84,7 @@ final class CommandeWorkflowTest extends KernelTestCase
     #[DataProvider('fournirAnnulationsPossibles')]
     public function testAnnulationAvantExpedition(StatutCommande $depart): void
     {
-        $commande = (new Commande())->setStatut($depart);
+        $commande = $this->commande()->setStatut($depart);
 
         $this->workflow->apply($commande, 'annuler');
 
@@ -104,7 +104,7 @@ final class CommandeWorkflowTest extends KernelTestCase
     #[DataProvider('fournirTransitionsInterdites')]
     public function testTransitionInterdite(StatutCommande $depart, string $transition): void
     {
-        $commande = (new Commande())->setStatut($depart);
+        $commande = $this->commande()->setStatut($depart);
 
         self::assertFalse($this->workflow->can($commande, $transition));
 
@@ -125,5 +125,13 @@ final class CommandeWorkflowTest extends KernelTestCase
         yield 'retourner sans livraison' => [StatutCommande::Expediee, 'retourner'];
         yield 'rembourser une commande livrée' => [StatutCommande::Livree, 'rembourser'];
         yield 'rembourser deux fois' => [StatutCommande::Remboursee, 'rembourser'];
+    }
+
+    /**
+     * Commande minimale : les écouteurs du workflow envoient des e-mails, l'adresse est obligatoire.
+     */
+    private function commande(): Commande
+    {
+        return (new Commande())->setEmail('client@instruments.test');
     }
 }

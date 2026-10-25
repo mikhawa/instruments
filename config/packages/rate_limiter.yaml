@@ -1,0 +1,25 @@
+framework:
+    rate_limiter:
+        # POST /api/panier/lignes : limite la création de paniers et de lignes par adresse IP
+        ajout_panier:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
+        # POST /api/commandes : chaque commande réserve du stock pendant 30 minutes
+        creation_commande:
+            policy: sliding_window
+            limit: 10
+            interval: '10 minutes'
+
+when@test:
+    framework:
+        rate_limiter:
+            # Tous les tests partagent la même IP : pas de blocage entre eux
+            ajout_panier:
+                policy: sliding_window
+                limit: 10000
+                interval: '1 minute'
+            creation_commande:
+                policy: sliding_window
+                limit: 10000
+                interval: '1 minute'

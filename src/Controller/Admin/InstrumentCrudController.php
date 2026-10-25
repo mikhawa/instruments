@@ -91,6 +91,11 @@ final class InstrumentCrudController extends AbstractCrudController
             ->setStoredAsCents()
             ->hideOnForm();
 
+        yield FormField::addTab('Logistique', 'fa fa-truck');
+        yield ChoiceField::new('classeLivraison', 'Classe de livraison')
+            ->setHelp('Gabarit d\'expédition : détermine la ligne de la grille tarifaire (Livraison > Tarifs). Une commande prend la classe la plus grande de ses instruments. « Transport dédié » (sur devis) et « Retrait uniquement » ne sont pas livrables par la grille.')
+            ->hideOnIndex();
+
         yield FormField::addTab('Origine et fabrication', 'fa fa-earth-africa');
         yield CountryField::new('paysOrigine', 'Pays d\'origine')->hideOnIndex();
         yield TextField::new('regionOrigine', 'Région d\'origine')->hideOnIndex();

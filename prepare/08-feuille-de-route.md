@@ -25,6 +25,11 @@ Modèle Claude conseillé (selon `CLAUDE.md`) : **H** = Haiku, **S** = Sonnet, *
 | 1.5 | React : `PanierContext`, `BoutonAjoutPanier`, mini-panier, page `/panier` | S |
 | 1.6 | Tâche planifiée de purge des paniers visiteurs | H |
 
+> ✅ **Réalisée le 2026-10-25** (`.claude-tasks/opus/025-…`). Écarts par rapport au plan :
+> - pas de `PanierContext` ni de mini-panier : le panier est chargé par le loader de la route racine et modifié par une action de route (`useFetcher`), React Router le recharge après chaque écriture ;
+> - frais de port, pays de livraison et code promo du panier reportés à la phase 2 (tables de livraison) et à la phase 6 ;
+> - la fusion est aussi déclenchée au premier appel au panier d'un client connecté qui porte encore un cookie visiteur (connexion par le back-office, par exemple).
+
 ## Phase 2 — Tunnel de commande (v1)
 
 | # | Tâche | Modèle |

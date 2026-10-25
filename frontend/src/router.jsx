@@ -7,11 +7,13 @@ import {
   connexionLoader,
   deconnexionAction,
   instrumentLoader,
+  panierAction,
   racineLoader,
 } from './loaders.js'
 import Catalogue, { CatalogueAttente } from './pages/Catalogue.jsx'
 import Connexion from './pages/Connexion.jsx'
 import InstrumentDetail from './pages/InstrumentDetail.jsx'
+import Panier from './pages/Panier.jsx'
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +26,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, loader: catalogueLoader, Component: Catalogue, ErrorBoundary: ErreurRoute },
       { path: 'instruments/:idSlug', loader: instrumentLoader, Component: InstrumentDetail, ErrorBoundary: ErreurRoute },
+      { path: 'panier', action: panierAction, Component: Panier, ErrorBoundary: ErreurRoute },
       { path: 'connexion', loader: connexionLoader, action: connexionAction, Component: Connexion, ErrorBoundary: ErreurRoute },
       // Déconnexion : uniquement par formulaire POST (un simple lien ne déconnecte pas)
       { path: 'deconnexion', action: deconnexionAction, loader: () => redirect('/') },
