@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\ApiResource\Panier;
 
-use App\Entity\LignePanier;
 use App\Entity\Instrument;
+use App\Entity\LignePanier;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**

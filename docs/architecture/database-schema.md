@@ -36,6 +36,9 @@ erDiagram
     instrument |o--o{ ligne_commande : "vendu dans"
     commande |o--o{ mouvement_stock : genere
     utilisateur |o--o{ mouvement_stock : "effectue par"
+    utilisateur |o--o| panier : possede
+    panier ||--o{ ligne_panier : contient
+    instrument ||--o{ ligne_panier : "ajouté dans"
 ```
 
 ## Tables
@@ -227,6 +230,36 @@ Chaque ligne **recopie** libellé, référence et prix : une modification ou sup
 | quantite | SMALLINT UNSIGNED | NOT NULL | `CHECK (quantite > 0)` |
 | total_ht | INT UNSIGNED | NOT NULL | `prix_unitaire_ht × quantite` |
 
+### Panier
+
+Panier en base (décision D1, `prepare/01-panier.md`). Aucun prix n'y est figé : les montants sont recalculés à chaque lecture par `App\Service\Panier\CalculateurPanier`.
+
+#### `panier`
+
+| Colonne | Type | Contraintes | Note |
+|---|---|---|---|
+| id | INT UNSIGNED | PK | jamais exposé |
+| jeton | BINARY(16) | NOT NULL, **UNIQUE** | UUID v7, valeur du cookie `panier` (HttpOnly, SameSite=Lax, 30 jours) |
+| utilisateur_id | INT UNSIGNED | FK → utilisateur, NULL, **UNIQUE**, ON DELETE CASCADE | NULL = visiteur ; un seul panier par client |
+| locale | VARCHAR(5) | NOT NULL | langue des libellés |
+| relance_envoyee_at | DATETIME | NULL | relance de panier abandonné (phase 5) |
+| created_at, updated_at | DATETIME | NOT NULL | `updated_at` modifié à chaque changement de ligne |
+
+Index : `updated_at` (purge quotidienne des paniers visiteurs inactifs depuis 30 jours).
+
+#### `ligne_panier`
+
+| Colonne | Type | Contraintes | Note |
+|---|---|---|---|
+| id | INT UNSIGNED | PK | identifiant des routes `/api/panier/lignes/{id}` |
+| panier_id | INT UNSIGNED | FK → panier, ON DELETE CASCADE | |
+| instrument_id | INT UNSIGNED | FK → instrument, ON DELETE CASCADE | |
+| quantite | SMALLINT UNSIGNED | NOT NULL | `CHECK (quantite > 0)`, au plus 10, 1 pour une pièce unique |
+| prix_ht_ajout | INT UNSIGNED | NOT NULL | centimes, sert uniquement à signaler un changement de prix |
+| created_at | DATETIME | NOT NULL | |
+
+Index unique : `(panier_id, instrument_id)`. L'ajout au panier **ne réserve pas** le stock : la réservation a lieu au passage en commande.
+
 ## Cycle de vie d'une commande et effets sur le stock
 
 ```mermaid
@@ -263,14 +296,13 @@ Règles :
 
 ## Hors périmètre v1 (évolutions prévues)
 
-- **Panier** : côté client (React, `localStorage`), il n'est persisté qu'à la validation. Une table `panier` pourra être ajoutée pour le multi-appareils.
 - **Paiement** : une table `paiement` (prestataire, identifiant de transaction, montant, statut) sera ajoutée avec le choix du prestataire (Mollie ou Stripe).
 - **Factures** : table `facture` avec une numérotation légale continue.
 - **Codes promo**, **avis clients**, **liste de souhaits**, **frais de port par zone**.
 
 ## Exposition via l'API (API Platform)
 
-État v1 : seuls **`/api/categories`** et **`/api/instruments`** sont exposés (formats JSON et JSON-LD).
+État v1 : **`/api/categories`**, **`/api/instruments`** et le **panier courant** (`/api/panier`, `/api/panier/lignes`) sont exposés (formats JSON et JSON-LD).
 Le filtrage public (instruments publiés, catégories actives) est fait par `src/Doctrine/CatalogueVisibleExtension.php`.
 Les autres ressources seront exposées avec les voters et le Workflow de commande.
 
@@ -278,6 +310,7 @@ Les autres ressources seront exposées avec les voters et le Workflow de command
 |---|---|---|
 | Catégories, instruments publiés, images | public | `ROLE_ADMIN` |
 | Stock (disponibilité) | public : champ calculé `disponible` uniquement | `ROLE_ADMIN` |
+| Panier (`/api/panier`) | détenteur du cookie ou client connecté (`PanierVoter`) | idem ; quantités seulement, jamais de prix ; ajout limité à 30 par minute et par IP |
 | Mouvements de stock | `ROLE_ADMIN` | `ROLE_ADMIN` (création seule) |
 | Commandes, lignes | propriétaire (voter) ou `ROLE_ADMIN` | création : client connecté ; statut : `ROLE_ADMIN` via Workflow |
 | Utilisateur, adresses | propriétaire (voter) | propriétaire |
