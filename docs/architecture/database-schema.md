@@ -318,13 +318,13 @@ Transitions Workflow : `payer`, `expirer`, `annuler`, `preparer`, `expedier`, `l
 Règles :
 - Les transitions passent par **Symfony Workflow** (`config/packages/workflow.yaml`), jamais par une modification directe du statut.
 - Toute écriture sur `stock` se fait dans **une transaction** avec le verrou optimiste, et crée le `mouvement_stock` correspondant. Le panier est vérifié contre la quantité disponible lors de la validation.
-- Commandes `en_attente_paiement` non payées : libérées automatiquement après **30 min** (commande Messenger planifiée).
+- Commandes `en_attente_paiement` non payées : libérées automatiquement après **30 min** (tâche planifiée `ExpirerCommandes`, toutes les 5 minutes).
 
 ## Hors périmètre v1 (évolutions prévues)
 
 - **Paiement** : une table `paiement` (prestataire, identifiant de transaction, montant, statut) sera ajoutée avec le choix du prestataire (Mollie ou Stripe).
 - **Factures** : table `facture` avec une numérotation légale continue.
-- **Codes promo**, **avis clients**, **liste de souhaits**, **frais de port par zone**.
+- **Codes promo**, **avis clients**, **liste de souhaits**.
 
 ## Exposition via l'API (API Platform)
 
