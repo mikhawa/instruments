@@ -45,7 +45,7 @@ class Panier
     private ?\DateTimeImmutable $relanceEnvoyeeAt = null;
 
     /** @var Collection<int, LignePanier> */
-    #[ORM\OneToMany(targetEntity: LignePanier::class, mappedBy: 'panier', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: LignePanier::class, mappedBy: 'panier', cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['createdAt' => 'ASC', 'id' => 'ASC'])]
     private Collection $lignes;
 
