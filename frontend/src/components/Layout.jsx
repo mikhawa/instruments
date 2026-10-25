@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { Form, Link, Outlet, ScrollRestoration, useLocation, useNavigation, useRouteLoaderData } from 'react-router'
+import { suivrePage } from '../lib/matomo'
 
 /**
  * Gabarit commun : barre de marque et compte, contenu de la route,
@@ -9,6 +11,14 @@ export default function Layout() {
   const { utilisateur } = useRouteLoaderData('racine') ?? {}
   const { pathname, search } = useLocation()
   const surConnexion = pathname === '/connexion'
+  const urlPrecedente = useRef(null)
+
+  // Une page vue Matomo par changement de route (première page comprise)
+  useEffect(() => {
+    const url = window.location.origin + pathname + search
+    suivrePage(url, urlPrecedente.current)
+    urlPrecedente.current = url
+  }, [pathname, search])
 
   return (
     <>

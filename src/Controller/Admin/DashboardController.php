@@ -10,6 +10,7 @@ use App\Repository\CommandeRepository;
 use App\Repository\InstrumentRepository;
 use App\Repository\StockRepository;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Assets;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\MenuItem;
@@ -37,6 +38,10 @@ final class DashboardController extends AbstractDashboardController
         private readonly string $urlSite,
         #[Autowire(service: 'security.logout_url_generator')]
         private readonly LogoutUrlGenerator $logoutUrlGenerator,
+        #[Autowire(env: 'MATOMO_URL')]
+        private readonly string $matomoUrl,
+        #[Autowire(env: 'MATOMO_SITE_ID')]
+        private readonly string $matomoSiteId,
     ) {
     }
 
@@ -59,6 +64,37 @@ final class DashboardController extends AbstractDashboardController
         return Dashboard::new()
             ->setTitle('Instruments — Administration')
             ->setLocales(['fr']);
+    }
+
+    /**
+     * Suivi Matomo de toutes les pages admin, uniquement si MATOMO_URL est renseigné
+     * (.env.prod : préprod et prod ; vide en dev et en test).
+     */
+    public function configureAssets(): Assets
+    {
+        $assets = parent::configureAssets();
+        if ('' === $this->matomoUrl || '' === $this->matomoSiteId) {
+            return $assets;
+        }
+
+        return $assets->addHtmlContentToHead(\sprintf(
+            <<<'HTML'
+                <script>
+                  var _paq = window._paq = window._paq || [];
+                  _paq.push(['trackPageView']);
+                  _paq.push(['enableLinkTracking']);
+                  (function() {
+                    var u = %s;
+                    _paq.push(['setTrackerUrl', u + 'matomo.php']);
+                    _paq.push(['setSiteId', %s]);
+                    var g = document.createElement('script'); g.async = true; g.src = u + 'matomo.js';
+                    document.head.appendChild(g);
+                  })();
+                </script>
+                HTML,
+            json_encode($this->matomoUrl, \JSON_UNESCAPED_SLASHES | \JSON_HEX_TAG),
+            json_encode($this->matomoSiteId, \JSON_HEX_TAG),
+        ));
     }
 
     public function configureCrud(): Crud

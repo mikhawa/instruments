@@ -9,7 +9,10 @@ import '@fontsource/alegreya-sans/500.css'
 import '@fontsource/alegreya-sans/700.css'
 import './index.css'
 import { RouterProvider } from 'react-router'
+import { initialiserMatomo } from './lib/matomo'
 import { router } from './router.jsx'
+
+initialiserMatomo()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
