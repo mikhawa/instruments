@@ -1,0 +1,10 @@
+{% extends 'emails/commande/_base.html.twig' %}
+
+{% block contenu %}
+    <h1 style="font-size:22px;margin:0 0 12px;">Votre commande est en route</h1>
+    <p>Votre commande <strong>{{ commande.numero }}</strong> vient d'être expédiée ({{ commande.libelleLivraison ?? 'livraison' }}).</p>
+    {% if commande.numeroSuivi %}
+        <p>Numéro de suivi du transporteur : <strong>{{ commande.numeroSuivi }}</strong></p>
+    {% endif %}
+    {% include 'emails/commande/_recapitulatif.html.twig' %}
+{% endblock %}

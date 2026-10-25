@@ -1,0 +1,10 @@
+{% extends 'emails/commande/_base.html.twig' %}
+
+{% block contenu %}
+    <h1 style="font-size:22px;margin:0 0 12px;">Merci pour votre commande</h1>
+    <p>Votre commande <strong>{{ commande.numero }}</strong> est enregistrée. Les instruments sont réservés pour vous
+        {% if commande.expireAt %} jusqu'au {{ commande.expireAt|date('d/m/Y à H:i', 'Europe/Brussels') }}{% endif %},
+        le temps du paiement.</p>
+    {% include 'emails/commande/_recapitulatif.html.twig' %}
+    <p style="font-size:14px;">Vous recevrez un nouvel e-mail dès l'expédition.</p>
+{% endblock %}

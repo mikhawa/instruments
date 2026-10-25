@@ -1,0 +1,20 @@
+<table role="presentation" style="width:100%;border-collapse:collapse;font-size:15px;margin:16px 0;">
+    {% for ligne in commande.lignes %}
+        <tr>
+            <td style="padding:6px 0;border-bottom:1px solid #eee5d6;">{{ ligne.quantite }} × {{ ligne.libelle }}</td>
+            <td style="padding:6px 0;border-bottom:1px solid #eee5d6;text-align:right;white-space:nowrap;">{{ ligne.totalTtc|prix }}</td>
+        </tr>
+    {% endfor %}
+    <tr>
+        <td style="padding:6px 0;">{{ commande.libelleLivraison ?? 'Livraison' }}</td>
+        <td style="padding:6px 0;text-align:right;">{{ commande.fraisPortTtc|prix }}</td>
+    </tr>
+    <tr>
+        <td style="padding:8px 0;font-weight:bold;border-top:2px solid #2b2420;">Total TTC</td>
+        <td style="padding:8px 0;font-weight:bold;border-top:2px solid #2b2420;text-align:right;">{{ commande.totalTtc|prix }}</td>
+    </tr>
+    <tr>
+        <td style="font-size:13px;color:#6b625a;">dont TVA</td>
+        <td style="font-size:13px;color:#6b625a;text-align:right;">{{ commande.totalTva|prix }}</td>
+    </tr>
+</table>

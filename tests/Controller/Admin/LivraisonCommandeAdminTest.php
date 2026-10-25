@@ -12,8 +12,10 @@ use App\Entity\ZoneLivraison;
 use App\Enum\ClasseLivraison;
 use App\Enum\StatutCommande;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -95,9 +97,7 @@ final class LivraisonCommandeAdminTest extends WebTestCase
         yield 'tarifs' => ['tarif-livraison'];
     }
 
-    /**
-     * @dataProvider fournirCrudLivraison
-     */
+    #[DataProvider('fournirCrudLivraison')]
     public function testPagesIndexEtNouveau(string $chemin): void
     {
         $this->client->request('GET', '/admin/'.$chemin);
@@ -146,14 +146,14 @@ final class LivraisonCommandeAdminTest extends WebTestCase
         self::assertStringNotContainsString('Marquer comme expédiée', $texte);
 
         // Préparer
-        $this->soumettreAction($crawler, 'Préparer la commande');
+        $this->soumettreAction($crawler, 'preparer');
         $crawler = $this->client->followRedirect();
         self::assertSelectorTextContains('body', 'effectué');
         $this->entityManager->clear();
         self::assertSame(StatutCommande::EnPreparation, $this->entityManager->find(Commande::class, $this->idCommande)->getStatut());
 
         // Expédier sans numéro de suivi : refusé
-        $this->soumettreAction($crawler, 'Marquer comme expédiée');
+        $this->soumettreAction($crawler, 'expedier');
         $crawler = $this->client->followRedirect();
         self::assertSelectorTextContains('body', 'numéro de suivi');
         $this->entityManager->clear();
@@ -164,13 +164,10 @@ final class LivraisonCommandeAdminTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    private function soumettreAction(\Symfony\Component\DomCrawler\Crawler $crawler, string $libelle): void
+    private function soumettreAction(Crawler $crawler, string $transition): void
     {
-        $lien = $crawler->filter('[data-ea-action-form-id]')->reduce(
-            static fn ($noeud): bool => str_contains($noeud->text(), $libelle),
-        )->first();
-        self::assertCount(1, $lien, $libelle);
-        $formulaire = $crawler->filter('form#'.$lien->attr('data-ea-action-form-id'));
+        $formulaire = $crawler->filter(sprintf('button[data-action-name="transition_%s"]', $transition))->closest('form');
+        self::assertNotNull($formulaire, $transition);
         $this->client->request('POST', $formulaire->attr('action'));
     }
 }

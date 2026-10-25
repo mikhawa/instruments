@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Scheduler;
 
+use App\Scheduler\Message\ExpirerCommandes;
 use App\Scheduler\Message\PurgerPaniersVisiteurs;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
@@ -33,9 +34,10 @@ final class ProgrammeTaches implements ScheduleProviderInterface
             // Chaque nuit à 3 h 30 (heure de Bruxelles), en dehors des heures d'affluence
             ->add(RecurringMessage::every('1 day', new PurgerPaniersVisiteurs(), from: new \DateTimeImmutable('03:30', new \DateTimeZone('Europe/Brussels'))))
 
-            // À venir :
-            //  - expiration des commandes non payées (toutes les 5 minutes) ;
-            //  - relance des paniers abandonnés.
+            // Commandes non payées : stock libéré au plus 5 minutes après la fin de la réservation
+            ->add(RecurringMessage::every('5 minutes', new ExpirerCommandes()))
+
+            // À venir : relance des paniers abandonnés.
         ;
     }
 }
