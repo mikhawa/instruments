@@ -39,6 +39,10 @@ erDiagram
     utilisateur |o--o| panier : possede
     panier ||--o{ ligne_panier : contient
     instrument ||--o{ ligne_panier : "ajouté dans"
+    panier |o--o{ commande : "à l'origine de"
+    mode_livraison |o--o{ commande : "livrée par"
+    zone_livraison ||--o{ tarif_livraison : ""
+    mode_livraison ||--o{ tarif_livraison : ""
 ```
 
 ## Tables
@@ -198,8 +202,18 @@ Index : `(instrument_id, created_at)`.
 | Colonne | Type | Contraintes | Note |
 |---|---|---|---|
 | id | INT UNSIGNED | PK | |
-| numero | VARCHAR(20) | NOT NULL, **UNIQUE** | ex. `CMD-2026-000123` |
-| utilisateur_id | INT UNSIGNED | FK → utilisateur, NOT NULL, **ON DELETE RESTRICT** | obligations comptables |
+| numero | VARCHAR(20) | NOT NULL, **UNIQUE** | `CMD-{année}-{id sur 6 chiffres}` |
+| utilisateur_id | INT UNSIGNED | FK → utilisateur, **NULL** (commande invité), **ON DELETE RESTRICT** | obligations comptables |
+| email | VARCHAR(180) | NOT NULL | e-mail du compte, ou saisi par l'invité |
+| telephone | VARCHAR(30) | NULL | |
+| jeton_suivi | BINARY(16) | NOT NULL, **UNIQUE** | UUID v4 aléatoire du lien « suivre ma commande » (`?jeton=`) |
+| expire_at | DATETIME | NULL | fin de la réservation du stock tant que la commande n'est pas payée (30 min) |
+| cgv_version, cgv_acceptees_at | VARCHAR(30), DATETIME | NULL | preuve de l'acceptation des CGV |
+| canal | VARCHAR(20) | NOT NULL, défaut `site` | |
+| mode_livraison_id | INT UNSIGNED | FK → mode_livraison, NULL, ON DELETE SET NULL | |
+| libelle_livraison | VARCHAR(100) | NULL | copie du nom du mode |
+| panier_id | INT UNSIGNED | FK → panier, NULL, ON DELETE SET NULL | une nouvelle commande du même panier annule la précédente non payée |
+| cle_idempotence | VARCHAR(64) | NULL, **UNIQUE** | en-tête `Idempotency-Key` (double envoi) |
 | statut | VARCHAR(30) | NOT NULL | enum `StatutCommande` |
 | adresse_livraison | JSON | NOT NULL | **copie figée** de l'adresse |
 | adresse_facturation | JSON | NOT NULL | copie figée |
@@ -213,7 +227,7 @@ Index : `(instrument_id, created_at)`.
 | created_at | DATETIME | NOT NULL | |
 | paid_at, shipped_at, delivered_at, cancelled_at | DATETIME | NULL | horodatage des étapes |
 
-Index : `(utilisateur_id, created_at)`, `(statut, created_at)`.
+Index : `(utilisateur_id, created_at)`, `(statut, created_at)`, `(statut, expire_at)` (tâche d'expiration).
 
 #### `ligne_commande`
 Chaque ligne **recopie** libellé, référence et prix : une modification ou suppression d'instrument ne change pas les commandes passées.
@@ -229,6 +243,18 @@ Chaque ligne **recopie** libellé, référence et prix : une modification ou sup
 | taux_tva | SMALLINT UNSIGNED | NOT NULL | copie |
 | quantite | SMALLINT UNSIGNED | NOT NULL | `CHECK (quantite > 0)` |
 | total_ht | INT UNSIGNED | NOT NULL | `prix_unitaire_ht × quantite` |
+| prix_unitaire_ttc | INT UNSIGNED | NOT NULL | arrondi(`prix_unitaire_ht × (1 + taux)`), comme le panier |
+| total_ttc | INT UNSIGNED | NOT NULL | `prix_unitaire_ttc × quantite` ; TVA de la ligne = `total_ttc − total_ht` |
+
+### Livraison
+
+Grille **zone × mode × classe de colis** (décision D9, `prepare/05-livraison.md`), administrée dans EasyAdmin. Un seul envoi par commande, tarifé avec la **plus grande classe** des instruments (`instrument.classe_livraison` : `petit_colis` < `colis` < `hors_norme` ; `transport_dedie` → sur devis, `retrait_uniquement` → retrait seul). Valeurs de départ insérées par la migration, **à ajuster**.
+
+| Table | Colonnes | Note |
+|---|---|---|
+| `zone_livraison` | id, code (UNIQUE), nom, pays (JSON, codes ISO) | un pays dans une seule zone (`PaysDansUneSeuleZone`) |
+| `mode_livraison` | id, code (UNIQUE), nom, description, is_retrait, is_active, position | un mode « retrait » est gratuit, sans grille ni adresse de livraison |
+| `tarif_livraison` | id, zone_id, mode_id, classe, prix_ttc, delai_jours_min, delai_jours_max | UNIQUE `(zone_id, mode_id, classe)` ; pas de ligne = combinaison non proposée |
 
 ### Panier
 
@@ -310,9 +336,11 @@ Les autres ressources seront exposées avec les voters et le Workflow de command
 |---|---|---|
 | Catégories, instruments publiés, images | public | `ROLE_ADMIN` |
 | Stock (disponibilité) | public : champ calculé `disponible` uniquement | `ROLE_ADMIN` |
+| Options de livraison (`/api/panier/livraison?pays=`) | détenteur du panier | — |
+| Commandes (`/api/commandes`) | client connecté (ses commandes), ou lien de suivi `?jeton=` (`CommandeVoter`) ; 404 sinon | création : invité ou client, depuis le panier courant, 10 par 10 min et par IP |
 | Panier (`/api/panier`) | détenteur du cookie ou client connecté (`PanierVoter`) | idem ; quantités seulement, jamais de prix ; ajout limité à 30 par minute et par IP |
 | Mouvements de stock | `ROLE_ADMIN` | `ROLE_ADMIN` (création seule) |
-| Commandes, lignes | propriétaire (voter) ou `ROLE_ADMIN` | création : client connecté ; statut : `ROLE_ADMIN` via Workflow |
+| Commandes (back-office) | `ROLE_ADMIN` | statut : `ROLE_ADMIN` via les transitions du Workflow |
 | Utilisateur, adresses | propriétaire (voter) | propriétaire |
 
 Les entités ne sont pas exposées directement : les lectures publiques passent par des **DTO / groupes de sérialisation**, pour ne jamais exposer l'emplacement en réserve, les quantités exactes, le `password` ou les `roles`.

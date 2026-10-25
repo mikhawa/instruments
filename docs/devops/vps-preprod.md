@@ -192,9 +192,13 @@ DEFAULT_URI=https://<domaine>
 FRONT_URL=/
 CORS_ALLOW_ORIGIN='^https://<domaine>$'
 MAILER_DSN=smtp://<utilisateur>:<mot_de_passe>@<serveur_smtp>:587
+MAILER_EXPEDITEUR='Instruments traditionnels <boutique@<domaine>>'
 ```
 
-Un `APP_SECRET` **différent** par environnement. Les caractères spéciaux du mot de passe
+Un `APP_SECRET` **différent** par environnement. `DEFAULT_URI` sert aussi aux liens des e-mails
+de commande (« suivre ma commande ») : il doit être l'adresse publique du site. Les e-mails et
+l'expiration des commandes non payées passent par le worker Messenger (section 6) : sans lui,
+aucun e-mail n'est envoyé et le stock réservé n'est jamais libéré. Les caractères spéciaux du mot de passe
 dans `DATABASE_URL` doivent être encodés (`@` → `%40`, `#` → `%23`, etc.). Ajuster
 `serverVersion` à la version réelle de MariaDB (`mariadb --version`).
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Entity\Commande;
+use App\Service\Commande\VerrouStock;
 use Doctrine\ORM\EntityManagerInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
@@ -66,6 +67,7 @@ final class CommandeCrudController extends AbstractCrudController
         private readonly AdminUrlGenerator $adminUrlGenerator,
         private readonly EntityManagerInterface $entityManager,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly VerrouStock $verrouStock,
     ) {
     }
 
@@ -126,12 +128,21 @@ final class CommandeCrudController extends AbstractCrudController
         } elseif (!$this->workflow->can($commande, $transition)) {
             $this->addFlash('danger', sprintf('« %s » n\'est pas possible pour la commande %s dans son état actuel.', $libelle, $commande->getNumero()));
         } else {
+            // Stocks verrouillés et relus : une commande créée au même instant ne peut pas fausser les quantités
+            $connexion = $this->entityManager->getConnection();
+            $connexion->beginTransaction();
             try {
+                $this->verrouStock->verrouiller(array_map(static fn ($ligne) => $ligne->getInstrument(), $commande->getLignes()->toArray()));
                 $this->workflow->apply($commande, $transition);
                 $this->entityManager->flush();
+                $connexion->commit();
                 $this->addFlash('success', sprintf('Commande %s : « %s » effectué.', $commande->getNumero(), $libelle));
             } catch (LogicException|\DomainException $exception) {
+                $connexion->rollBack();
                 $this->addFlash('danger', sprintf('« %s » impossible pour la commande %s : %s', $libelle, $commande->getNumero(), $exception->getMessage()));
+            } catch (\Throwable $exception) {
+                $connexion->rollBack();
+                throw $exception;
             }
         }
 
