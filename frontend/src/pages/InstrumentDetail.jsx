@@ -1,4 +1,5 @@
 import { Link, useLoaderData } from 'react-router'
+import BoutonAjoutPanier from '../components/BoutonAjoutPanier.jsx'
 import Plaque from '../components/Plaque.jsx'
 import {
   disponibilite,
@@ -58,6 +59,7 @@ export default function InstrumentDetail() {
               TTC, dont TVA {formaterTauxTva(instrument.tauxTva)} ({formaterPrix(instrument.prixHt)} HT)
             </p>
             <p className={`stock stock--${stock.niveau}`}>{stock.texte}</p>
+            <BoutonAjoutPanier instrument={instrument} />
           </div>
         </div>
       </div>

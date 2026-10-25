@@ -1,5 +1,6 @@
 import { data, redirect } from 'react-router'
 import { envoyerJson, fetchCollection, fetchRessource, fetchUtilisateurCourant } from './api/client.js'
+import { ajouterLigne, fetchPanier, modifierQuantite, retirerLigne, viderPanier } from './api/panier.js'
 import { cheminInstrument } from './lib/format.js'
 
 /**
@@ -8,10 +9,21 @@ import { cheminInstrument } from './lib/format.js'
  */
 
 /**
- * Route racine : utilisateur connecté (ou null), disponible partout via useRouteLoaderData('racine').
+ * Route racine : utilisateur connecté (ou null) et panier, disponibles partout
+ * via useRouteLoaderData('racine'). Le panier est rechargé après chaque action
+ * (ajout, connexion, déconnexion…) : le compteur de l'en-tête reste à jour sans contexte.
+ * Un panier injoignable ne doit pas bloquer le catalogue : il vaut alors null.
  */
 export async function racineLoader({ request }) {
-  return { utilisateur: await fetchUtilisateurCourant(request.signal) }
+  const [utilisateur, panier] = await Promise.all([
+    fetchUtilisateurCourant(request.signal),
+    fetchPanier(request.signal).then(
+      (reponse) => (reponse.ok ? reponse.corps : null),
+      () => null,
+    ),
+  ])
+
+  return { utilisateur, panier }
 }
 
 export async function catalogueLoader({ request }) {
@@ -85,4 +97,47 @@ export async function deconnexionAction({ request }) {
   await envoyerJson('/api/logout', { signal: request.signal })
 
   return redirect('/')
+}
+
+/**
+ * Message lisible pour une écriture refusée sur le panier.
+ */
+function erreurPanier(reponse) {
+  const corps = reponse.corps
+  if (reponse.status === 429) return "Trop d'ajouts en peu de temps. Patientez un instant avant de réessayer."
+  if (reponse.status === 404) return "Cette ligne n'est plus dans votre panier."
+  if (reponse.status === 422) {
+    const violation = corps?.violations?.[0]?.message
+    return corps?.detail ?? violation ?? 'Cette demande ne peut pas être acceptée.'
+  }
+
+  return 'Le panier est momentanément indisponible. Réessayez dans un instant.'
+}
+
+/**
+ * Écritures du panier, via useFetcher (formulaires POST vers /panier) :
+ * intention = ajouter | modifier | retirer | vider.
+ * Retourne { ok: true, intention } ou { erreur, intention } ; React Router revalide ensuite
+ * les loaders, donc le panier de la racine est rafraîchi dans les deux cas.
+ */
+export async function panierAction({ request }) {
+  const formulaire = await request.formData()
+  const intention = String(formulaire.get('intention') ?? '')
+  const ligne = String(formulaire.get('ligne') ?? '')
+  const quantite = Number.parseInt(String(formulaire.get('quantite') ?? '1'), 10)
+  let reponse
+
+  if (intention === 'ajouter') {
+    reponse = await ajouterLigne(String(formulaire.get('instrument') ?? ''), quantite, request.signal)
+  } else if (intention === 'modifier' && /^\d+$/.test(ligne)) {
+    reponse = await modifierQuantite(ligne, quantite, request.signal)
+  } else if (intention === 'retirer' && /^\d+$/.test(ligne)) {
+    reponse = await retirerLigne(ligne, request.signal)
+  } else if (intention === 'vider') {
+    reponse = await viderPanier(request.signal)
+  } else {
+    throw data(null, { status: 400 })
+  }
+
+  return reponse.ok ? { ok: true, intention } : { erreur: erreurPanier(reponse), intention }
 }

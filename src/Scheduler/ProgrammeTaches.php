@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Scheduler;
 
+use App\Scheduler\Message\PurgerPaniersVisiteurs;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
+use Symfony\Component\Scheduler\RecurringMessage;
 use Symfony\Component\Scheduler\Schedule;
 use Symfony\Component\Scheduler\ScheduleProviderInterface;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -28,9 +30,11 @@ final class ProgrammeTaches implements ScheduleProviderInterface
             ->stateful($this->cache)
             ->processOnlyLastMissedRun(true)
 
-            // Aucune tâche pour l'instant. À venir (RecurringMessage::every(...)) :
+            // Chaque nuit à 3 h 30 (heure de Bruxelles), en dehors des heures d'affluence
+            ->add(RecurringMessage::every('1 day', new PurgerPaniersVisiteurs(), from: new \DateTimeImmutable('03:30', new \DateTimeZone('Europe/Brussels'))))
+
+            // À venir :
             //  - expiration des commandes non payées (toutes les 5 minutes) ;
-            //  - purge des paniers des visiteurs (anonymes) ;
             //  - relance des paniers abandonnés.
         ;
     }

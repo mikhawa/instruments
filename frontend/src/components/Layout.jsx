@@ -8,7 +8,8 @@ import { suivrePage } from '../lib/matomo'
  */
 export default function Layout() {
   const navigation = useNavigation()
-  const { utilisateur } = useRouteLoaderData('racine') ?? {}
+  const { utilisateur, panier } = useRouteLoaderData('racine') ?? {}
+  const nombreArticles = panier?.nombreArticles ?? 0
   const { pathname, search } = useLocation()
   const surConnexion = pathname === '/connexion'
   const urlPrecedente = useRef(null)
@@ -28,6 +29,13 @@ export default function Layout() {
         </Link>
 
         <div className="barre__compte">
+          <Link
+            to="/panier"
+            className="lien-bouton barre__panier"
+            aria-label={`Panier, ${nombreArticles} ${nombreArticles > 1 ? 'articles' : 'article'}`}
+          >
+            Panier ({nombreArticles})
+          </Link>
           {utilisateur ? (
             <>
               <span className="barre__utilisateur">

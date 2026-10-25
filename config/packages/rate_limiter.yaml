@@ -5,3 +5,12 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '1 minute'
+
+when@test:
+    framework:
+        rate_limiter:
+            # Tous les tests partagent la même IP : pas de blocage entre eux
+            ajout_panier:
+                policy: sliding_window
+                limit: 10000
+                interval: '1 minute'
