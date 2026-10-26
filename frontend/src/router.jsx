@@ -10,9 +10,15 @@ import {
   panierAction,
   racineLoader,
 } from './loaders.js'
+import { commandeAction, commandeLoader, detailCommandeLoader, mesCommandesLoader } from './loadersCommande.js'
 import Catalogue, { CatalogueAttente } from './pages/Catalogue.jsx'
+import Cgv from './pages/Cgv.jsx'
+import Commande from './pages/Commande.jsx'
+import CommandeConfirmation from './pages/CommandeConfirmation.jsx'
+import CommandeSuivi from './pages/CommandeSuivi.jsx'
 import Connexion from './pages/Connexion.jsx'
 import InstrumentDetail from './pages/InstrumentDetail.jsx'
+import MesCommandes from './pages/MesCommandes.jsx'
 import Panier from './pages/Panier.jsx'
 
 export const router = createBrowserRouter([
@@ -27,6 +33,16 @@ export const router = createBrowserRouter([
       { index: true, loader: catalogueLoader, Component: Catalogue, ErrorBoundary: ErreurRoute },
       { path: 'instruments/:idSlug', loader: instrumentLoader, Component: InstrumentDetail, ErrorBoundary: ErreurRoute },
       { path: 'panier', action: panierAction, Component: Panier, ErrorBoundary: ErreurRoute },
+      { path: 'commande', loader: commandeLoader, action: commandeAction, Component: Commande, ErrorBoundary: ErreurRoute },
+      {
+        path: 'commande/confirmation/:numero',
+        loader: detailCommandeLoader,
+        Component: CommandeConfirmation,
+        ErrorBoundary: ErreurRoute,
+      },
+      { path: 'commande/suivi/:numero', loader: detailCommandeLoader, Component: CommandeSuivi, ErrorBoundary: ErreurRoute },
+      { path: 'compte/commandes', loader: mesCommandesLoader, Component: MesCommandes, ErrorBoundary: ErreurRoute },
+      { path: 'cgv', Component: Cgv, ErrorBoundary: ErreurRoute },
       { path: 'connexion', loader: connexionLoader, action: connexionAction, Component: Connexion, ErrorBoundary: ErreurRoute },
       // Déconnexion : uniquement par formulaire POST (un simple lien ne déconnecte pas)
       { path: 'deconnexion', action: deconnexionAction, loader: () => redirect('/') },

@@ -95,12 +95,15 @@ export default function Panier() {
             </p>
           )}
 
-          <button type="button" className="bouton recap__commander" disabled>
-            Commander
-          </button>
-          <p className="recap__note">
-            {panier.commandable ? 'La commande en ligne sera bientôt disponible.' : 'Commande impossible pour le moment.'}
-          </p>
+          {panier.commandable ? (
+            <Link to="/commande" className="bouton recap__commander">
+              Commander
+            </Link>
+          ) : (
+            <button type="button" className="bouton recap__commander" disabled>
+              Commander
+            </button>
+          )}
 
           <button type="button" className="lien-bouton" onClick={vider} disabled={envoiEnCours}>
             Vider le panier

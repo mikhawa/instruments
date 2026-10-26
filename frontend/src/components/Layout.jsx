@@ -42,6 +42,9 @@ export default function Layout() {
                 {utilisateur.prenom} {utilisateur.nom}
                 {utilisateur.roles.includes('ROLE_ADMIN') && <span className="barre__role"> (administrateur)</span>}
               </span>
+              <Link to="/compte/commandes" className="lien-bouton">
+                Mes commandes
+              </Link>
               {/* Lien HTML classique : /admin est servi par Symfony (EasyAdmin), pas par React Router */}
               {utilisateur.roles.includes('ROLE_ADMIN') && (
                 <a href="/admin" className="lien-bouton">

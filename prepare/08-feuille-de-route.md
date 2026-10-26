@@ -42,6 +42,11 @@ Modèle Claude conseillé (selon `CLAUDE.md`) : **H** = Haiku, **S** = Sonnet, *
 | 2.6 | React : page `/commande` (accordéon : identification, adresses, livraison, récapitulatif) | S |
 | 2.7 | Espace client : mes commandes, suivi invité par lien signé | S |
 
+> ✅ **Réalisée le 2026-10-26** (`.claude-tasks/opus/026-…` pour le tunnel React 2.6 et le branchement des routes). Écarts par rapport au plan :
+> - pas d'accordéon : une seule page en trois sections (coordonnées, livraison, facturation) avec le récapitulatif à côté ; le pays de livraison est porté par l'URL (`/commande?pays=FR`) ;
+> - le suivi invité utilise le jeton de suivi (UUID) de la commande, pas une URL signée ;
+> - aucun paiement : la commande reste « en attente de paiement » et le stock est réservé 30 minutes (phase 3).
+
 ## Phase 3 — Paiement (v1)
 
 | # | Tâche | Modèle |
