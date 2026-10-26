@@ -1,0 +1,15 @@
+{% extends 'emails/commande/_base.html.twig' %}
+
+{% block contenu %}
+    <h1 style="font-size:22px;margin:0 0 12px;">Votre paiement va vous être remboursé</h1>
+    {% if commande.motifAnnulation and commande.motifAnnulation.value == 'expiree' %}
+        <p>Votre paiement de <strong>{{ montant|prix }}</strong> pour la commande <strong>{{ commande.numero }}</strong>
+            nous est parvenu après la fin de la réservation, et un instrument de la commande n'est plus disponible.</p>
+    {% else %}
+        <p>Votre paiement de <strong>{{ montant|prix }}</strong> pour la commande <strong>{{ commande.numero }}</strong>
+            nous est parvenu alors que cette commande était déjà annulée.</p>
+    {% endif %}
+    <p>Nous vous remboursons intégralement, sur le moyen de paiement utilisé. Selon votre banque, le montant apparaît
+        sur votre compte sous quelques jours ouvrables.</p>
+    <p style="font-size:14px;">Toutes nos excuses pour ce contretemps. Pour toute question, répondez simplement à cet e-mail.</p>
+{% endblock %}

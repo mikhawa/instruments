@@ -15,6 +15,8 @@
 #   PHP_BIN             binaire PHP (défaut : PHP 8.3 de CyberPanel, lsphp83)
 #   VERSIONS_CONSERVEES nombre de versions gardées (défaut : 5)
 #   RECHARGEMENT_PHP    commande pour relancer lsphp / vider OPcache après bascule
+#   CLE_MOLLIE_ATTENDUE « live » (production) ou « test » (préprod) : une clé Mollie de l'autre type
+#                       arrête le déploiement avant toute migration
 
 set -euo pipefail
 
@@ -42,6 +44,10 @@ rm -rf public/uploads var/log
 mkdir -p var
 ln -sfn "$SHARED/public/uploads" public/uploads
 ln -sfn "$SHARED/var/log" var/log
+
+etape "Configuration du paiement"
+# Avant la sauvegarde et les migrations : une clé de test en production n'est jamais mise en ligne
+"$PHP" bin/console app:paiement:verifier-configuration ${CLE_MOLLIE_ATTENDUE:+--attendu="$CLE_MOLLIE_ATTENDUE"}
 
 etape "Sauvegarde de la base avant migration"
 # Identifiants lus depuis la configuration Symfony, passés à mysqldump par un fichier

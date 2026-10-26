@@ -1,5 +1,14 @@
 import { data, redirect } from 'react-router'
-import { creerCommande, fetchCommande, fetchCommandes, fetchOptionsLivraison } from './api/commandes.js'
+import {
+  choisirIssueSimulation,
+  creerCommande,
+  demanderPaiement,
+  fetchCommande,
+  fetchCommandes,
+  fetchOptionsLivraison,
+  fetchSimulation,
+  verifierPaiement,
+} from './api/commandes.js'
 import { jetonValide } from './lib/commande.js'
 
 /**
@@ -97,6 +106,18 @@ export async function commandeAction({ request }) {
     const jeton = reponse.corps.jetonSuivi
     const requete = jeton ? `?jeton=${encodeURIComponent(jeton)}` : ''
 
+    // Un seul moyen proposé (en ligne) : on évite une étape au client en demandant le paiement tout de suite.
+    // En cas d'échec, la page de confirmation propose le choix.
+    const moyens = reponse.corps.moyensPaiement ?? []
+    if (moyens.length === 1 && moyens[0] === 'en_ligne') {
+      try {
+        const paiement = await demanderPaiement(reponse.corps.numero, jeton ?? null, 'en_ligne', request.signal)
+        if (paiement.ok && paiement.corps?.urlPaiement) return redirect(paiement.corps.urlPaiement)
+      } catch {
+        // Prestataire injoignable : on retombe sur la page de confirmation
+      }
+    }
+
     return redirect(`/commande/confirmation/${encodeURIComponent(reponse.corps.numero)}${requete}`)
   }
 
@@ -115,13 +136,82 @@ export async function commandeAction({ request }) {
  * Introuvable ou non autorisé : { commande: null } pour afficher un message clair dans la page.
  */
 export async function detailCommandeLoader({ params, request }) {
-  const jeton = jetonValide(new URL(request.url).searchParams.get('jeton'))
-  const reponse = await fetchCommande(params.numero, jeton, request.signal)
+  const url = new URL(request.url)
+  const jeton = jetonValide(url.searchParams.get('jeton'))
+  const retour = url.searchParams.get('retour') === '1'
+
+  // Retour de la page du prestataire : le serveur relit le statut du paiement chez lui.
+  // Si la vérification est refusée (trop d'appels, panne), on affiche au moins la commande telle quelle.
+  let reponse = retour ? await verifierPaiement(params.numero, jeton, request.signal).catch(() => null) : null
+  if (!reponse?.ok) reponse = await fetchCommande(params.numero, jeton, request.signal)
 
   if (reponse.ok) return { commande: reponse.corps, jeton }
   if ([401, 403, 404].includes(reponse.status)) return { commande: null, jeton }
 
   throw data(null, { status: reponse.status })
+}
+
+/**
+ * Action de la confirmation et du suivi : choix du moyen de paiement.
+ * En ligne : redirection vers la page du prestataire. Virement : la page est rechargée et affiche le bloc virement.
+ * Échec : { erreur } affiché dans la page.
+ */
+export async function paiementAction({ params, request }) {
+  const formulaire = await request.formData()
+  const moyen = String(formulaire.get('moyen') ?? '')
+  const jeton = jetonValide(new URL(request.url).searchParams.get('jeton'))
+
+  if (!['en_ligne', 'virement'].includes(moyen)) return { erreur: "Ce moyen de paiement n'est pas valide." }
+
+  let reponse
+  try {
+    reponse = await demanderPaiement(params.numero, jeton, moyen, request.signal)
+  } catch {
+    return { erreur: 'Le serveur est injoignable. Vérifiez votre connexion puis réessayez.' }
+  }
+
+  if (reponse.ok) {
+    if (moyen === 'en_ligne' && reponse.corps?.urlPaiement) return redirect(reponse.corps.urlPaiement)
+
+    return { erreur: null }
+  }
+
+  switch (reponse.status) {
+    case 404:
+      return { erreur: "Cette commande n'est pas accessible. Vérifiez le lien reçu par e-mail." }
+    case 409:
+      return { erreur: reponse.corps?.detail ?? "Cette commande ne peut plus être payée par ce moyen." }
+    case 422:
+      return { erreur: reponse.corps?.detail ?? "Ce moyen de paiement n'est pas valide." }
+    case 429:
+      return { erreur: 'Trop de tentatives en peu de temps. Patientez quelques minutes avant de réessayer.' }
+    case 503:
+      return { erreur: reponse.corps?.detail ?? 'Le service de paiement ne répond pas. Réessayez dans un instant.' }
+    default:
+      return { erreur: 'Le paiement est momentanément indisponible. Réessayez dans un instant.' }
+  }
+}
+
+/**
+ * /paiement/simulation/:id (dev et test) : l'API répond 404 en production → page d'erreur de route.
+ */
+export async function simulationLoader({ params, request }) {
+  const reponse = await fetchSimulation(params.id, request.signal)
+  if (!reponse.ok) throw data(null, { status: reponse.status })
+
+  return { simulation: reponse.corps }
+}
+
+/**
+ * Issue choisie sur la page de simulation : le serveur termine le paiement puis renvoie l'URL de retour.
+ */
+export async function simulationAction({ params, request }) {
+  const formulaire = await request.formData()
+  const reponse = await choisirIssueSimulation(params.id, String(formulaire.get('issue') ?? ''), request.signal)
+
+  if (reponse.ok && reponse.corps?.urlRetour) return redirect(reponse.corps.urlRetour)
+
+  return { erreur: reponse.corps?.detail ?? 'La simulation a échoué. Rechargez la page puis réessayez.' }
 }
 
 /**

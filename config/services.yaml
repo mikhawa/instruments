@@ -9,6 +9,8 @@
 parameters:
     # Version des CGV acceptées à la commande (enregistrée sur chaque commande ; tables versionnées en phase 4)
     app.cgv_version: '2026-10-provisoire'
+    # Le virement SEPA est proposé à partir de ce total TTC, en centimes (prepare/03-paiement.md § 6)
+    app.virement_seuil: 50000
 
 services:
     # default configuration for services in *this* file

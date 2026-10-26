@@ -1,5 +1,6 @@
 import { Link, useLoaderData, useRouteLoaderData } from 'react-router'
 import CommandeIntrouvable from '../components/CommandeIntrouvable.jsx'
+import ChoixPaiement from '../components/ChoixPaiement.jsx'
 import DetailCommande from '../components/DetailCommande.jsx'
 
 /**
@@ -16,6 +17,8 @@ export default function CommandeSuivi() {
     <main className="commande">
       <title>{`Suivi de la commande ${commande.numero} — Instruments traditionnels`}</title>
       <h1 className="commande__titre">Suivi de la commande {commande.numero}</h1>
+
+      {commande.statut === 'en_attente_paiement' && <ChoixPaiement commande={commande} />}
 
       <DetailCommande commande={commande} frise />
 

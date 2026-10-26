@@ -193,7 +193,22 @@ FRONT_URL=/
 CORS_ALLOW_ORIGIN='^https://<domaine>$'
 MAILER_DSN=smtp://<utilisateur>:<mot_de_passe>@<serveur_smtp>:587
 MAILER_EXPEDITEUR='Instruments traditionnels <boutique@<domaine>>'
+# Paiement (prepare/03-paiement.md) : clé test_… en préprod, live_… en production
+MOLLIE_API_KEY=<clé du tableau de bord Mollie, Développeurs → Clés API>
+# Virement SEPA proposé à partir de 500 € (vide = virement non proposé)
+VIREMENT_IBAN=<IBAN du compte professionnel>
+VIREMENT_BIC=<BIC>
+VIREMENT_BENEFICIAIRE='<raison sociale>'
 ```
+
+**Paiement.** Mollie envoie ses notifications à `DEFAULT_URI` + `/api/webhooks/mollie` : cette adresse
+doit être publique et en HTTPS (aucune protection par mot de passe devant le site de préprod, ou une
+exception pour ce chemin). Sans `MOLLIE_API_KEY`, le paiement en ligne est indisponible : le faux
+prestataire « simulation » n'existe pas en production. Au déploiement, `deploy/activer-release.sh`
+lance `app:paiement:verifier-configuration` **avant les migrations** : une clé du mauvais type
+(`test_…` sur un tag de production, `live_…` en préprod) arrête le déploiement ; une clé ou un IBAN
+absent ne donne qu'un avertissement. Le relevé des virements reçus se fait à la main : bouton
+« Virement reçu » sur la commande dans le back-office.
 
 Un `APP_SECRET` **différent** par environnement. `DEFAULT_URI` sert aussi aux liens des e-mails
 de commande (« suivre ma commande ») : il doit être l'adresse publique du site. Les e-mails et
@@ -338,6 +353,10 @@ gunzip < shared/sauvegardes/<base>_<date>.sql.gz | mysql <base>
   Une commande dédiée (`app:creer-admin`) serait plus sûre : à prévoir.
 - **Tests** : la CI lance PHPUnit, mais le projet n'a encore aucun test. Le garde-fou
   actuel se limite aux lints, aux migrations sur une base vierge et à `doctrine:schema:validate`.
+- **Paiements** : journal dédié au canal Monolog `paiement` (dans `prod.log`). Une ligne `CRITICAL`
+  « non appliqué » signale un montant encaissé différent de la commande : à vérifier dans le tableau
+  de bord Mollie. Les remboursements à faire à la main (virements) apparaissent « échoué » dans
+  Back-office → Paiements.
 - **Journaux** : `shared/var/log/prod.log`, conservés d'une version à l'autre. Journaux
   d'OpenLiteSpeed : `/home/<domaine>/logs/`.
 
@@ -348,7 +367,9 @@ dont le DSN par défaut est `MESSENGER_TRANSPORT_DSN=doctrine://default?auto_set
 `messenger_messages`, créée par une migration). **Sans worker, ces messages restent en file
 d'attente et ne partent jamais.** Le Scheduler (`src/Scheduler/ProgrammeTaches.php`, transport
 `scheduler_default`) a besoin du même worker pour déclencher les tâches planifiées (expiration
-des commandes non payées, purge des paniers, relances).
+des commandes non payées, purge des paniers, synchronisation des paiements et des remboursements
+toutes les 15 minutes, relances). Les notifications de Mollie sont aussi traitées par ce worker :
+sans lui, une commande payée reste « en attente » jusqu'au retour du client sur le site.
 
 Sur CyberPanel, ni Docker ni `systemd` ne sont garantis : on utilise une tâche **cron** qui
 relance le worker toutes les minutes. `flock -n` empêche de lancer un second worker tant que le

@@ -10,7 +10,15 @@ import {
   panierAction,
   racineLoader,
 } from './loaders.js'
-import { commandeAction, commandeLoader, detailCommandeLoader, mesCommandesLoader } from './loadersCommande.js'
+import {
+  commandeAction,
+  commandeLoader,
+  detailCommandeLoader,
+  mesCommandesLoader,
+  paiementAction,
+  simulationAction,
+  simulationLoader,
+} from './loadersCommande.js'
 import Catalogue, { CatalogueAttente } from './pages/Catalogue.jsx'
 import Cgv from './pages/Cgv.jsx'
 import Commande from './pages/Commande.jsx'
@@ -20,6 +28,7 @@ import Connexion from './pages/Connexion.jsx'
 import InstrumentDetail from './pages/InstrumentDetail.jsx'
 import MesCommandes from './pages/MesCommandes.jsx'
 import Panier from './pages/Panier.jsx'
+import PaiementSimulation from './pages/PaiementSimulation.jsx'
 
 export const router = createBrowserRouter([
   {
@@ -37,10 +46,19 @@ export const router = createBrowserRouter([
       {
         path: 'commande/confirmation/:numero',
         loader: detailCommandeLoader,
+        action: paiementAction,
         Component: CommandeConfirmation,
         ErrorBoundary: ErreurRoute,
       },
-      { path: 'commande/suivi/:numero', loader: detailCommandeLoader, Component: CommandeSuivi, ErrorBoundary: ErreurRoute },
+      {
+        path: 'commande/suivi/:numero',
+        loader: detailCommandeLoader,
+        action: paiementAction,
+        Component: CommandeSuivi,
+        ErrorBoundary: ErreurRoute,
+      },
+      // Simulation de paiement (dev/test) : l'API répond 404 en production
+      { path: 'paiement/simulation/:id', loader: simulationLoader, action: simulationAction, Component: PaiementSimulation, ErrorBoundary: ErreurRoute },
       { path: 'compte/commandes', loader: mesCommandesLoader, Component: MesCommandes, ErrorBoundary: ErreurRoute },
       { path: 'cgv', Component: Cgv, ErrorBoundary: ErreurRoute },
       { path: 'connexion', loader: connexionLoader, action: connexionAction, Component: Connexion, ErrorBoundary: ErreurRoute },

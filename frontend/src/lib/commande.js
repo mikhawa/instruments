@@ -70,3 +70,33 @@ export function formaterDelai(option) {
 export function jetonValide(valeur) {
   return typeof valeur === 'string' && /^[0-9a-fA-F-]{32,40}$/.test(valeur) ? valeur : null
 }
+
+export const STATUTS_PAIEMENT = {
+  ouvert: 'Ouvert',
+  en_attente: 'En attente',
+  autorise: 'Autorisé',
+  paye: 'Payé',
+  echoue: 'Refusé',
+  annule: 'Annulé',
+  expire: 'Expiré',
+  rembourse: 'Remboursé',
+  partiellement_rembourse: 'Partiellement remboursé',
+}
+
+export function libelleStatutPaiement(statut) {
+  return STATUTS_PAIEMENT[statut] ?? statut
+}
+
+/**
+ * Un paiement « en cours » n'est ni abouti ni définitivement échoué.
+ */
+export function paiementEnCours(paiement) {
+  return ['ouvert', 'en_attente', 'autorise'].includes(paiement?.statut)
+}
+
+/**
+ * Tentative terminée sans que le client ait payé.
+ */
+export function paiementNonAbouti(paiement) {
+  return ['echoue', 'annule', 'expire'].includes(paiement?.statut)
+}

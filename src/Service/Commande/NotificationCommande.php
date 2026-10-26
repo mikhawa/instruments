@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Service\Commande;
 
 use App\Entity\Commande;
+use App\Entity\Paiement;
+use App\Service\Paiement\Virement\CoordonneesVirement;
 use App\Service\UrlSite;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -20,6 +22,7 @@ final readonly class NotificationCommande
     public function __construct(
         private MailerInterface $mailer,
         private UrlSite $urlSite,
+        private CoordonneesVirement $coordonneesVirement,
         #[Autowire(env: 'MAILER_EXPEDITEUR')]
         private string $expediteur,
     ) {
@@ -28,6 +31,28 @@ final readonly class NotificationCommande
     public function commandeEnregistree(Commande $commande): void
     {
         $this->envoyer($commande, 'enregistree', \sprintf('Votre commande %s est enregistrée', $commande->getNumero()));
+    }
+
+    public function commandePayee(Commande $commande): void
+    {
+        $this->envoyer($commande, 'payee', \sprintf('Paiement reçu pour votre commande %s', $commande->getNumero()));
+    }
+
+    /**
+     * Paiement arrivé trop tard (instruments plus disponibles) : il est remboursé.
+     */
+    public function paiementRembourse(Commande $commande, int $montant): void
+    {
+        $this->envoyer($commande, 'remboursee', \sprintf('Commande %s : remboursement de votre paiement', $commande->getNumero()), ['montant' => $montant]);
+    }
+
+    public function instructionsVirement(Paiement $paiement): void
+    {
+        $commande = $paiement->getCommande();
+        $this->envoyer($commande, 'virement', \sprintf('Commande %s : informations pour votre virement', $commande->getNumero()), [
+            'paiement' => $paiement,
+            'coordonnees' => $this->coordonneesVirement,
+        ]);
     }
 
     public function commandeExpediee(Commande $commande): void
@@ -48,7 +73,10 @@ final readonly class NotificationCommande
         return $this->urlSite->absolue('/commande/suivi/'.$commande->getNumero(), ['jeton' => $commande->getJetonSuivi()->toRfc4122()]);
     }
 
-    private function envoyer(Commande $commande, string $modele, string $sujet): void
+    /**
+     * @param array<string, mixed> $contexte
+     */
+    private function envoyer(Commande $commande, string $modele, string $sujet, array $contexte = []): void
     {
         $this->mailer->send((new TemplatedEmail())
             ->from(Address::create($this->expediteur))
@@ -59,6 +87,7 @@ final readonly class NotificationCommande
                 'commande' => $commande,
                 'urlSuivi' => $this->urlSuivi($commande),
                 'urlSite' => $this->urlSite->absolue('/'),
+                ...$contexte,
             ]));
     }
 }

@@ -10,6 +10,21 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '10 minutes'
+        # POST /api/commandes/{numero}/paiements : chaque essai crée un paiement chez le prestataire
+        demande_paiement:
+            policy: sliding_window
+            limit: 10
+            interval: '10 minutes'
+        # POST /api/commandes/{numero}/verification-paiement : interroge le prestataire
+        verification_paiement:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
+        # POST /api/webhooks/mollie : chaque notification connue déclenche une lecture chez Mollie
+        webhook_paiement:
+            policy: sliding_window
+            limit: 120
+            interval: '1 minute'
 
 when@test:
     framework:
@@ -20,6 +35,18 @@ when@test:
                 limit: 10000
                 interval: '1 minute'
             creation_commande:
+                policy: sliding_window
+                limit: 10000
+                interval: '1 minute'
+            demande_paiement:
+                policy: sliding_window
+                limit: 10000
+                interval: '1 minute'
+            verification_paiement:
+                policy: sliding_window
+                limit: 10000
+                interval: '1 minute'
+            webhook_paiement:
                 policy: sliding_window
                 limit: 10000
                 interval: '1 minute'

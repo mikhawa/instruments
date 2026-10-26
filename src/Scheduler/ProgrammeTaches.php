@@ -6,6 +6,7 @@ namespace App\Scheduler;
 
 use App\Scheduler\Message\ExpirerCommandes;
 use App\Scheduler\Message\PurgerPaniersVisiteurs;
+use App\Scheduler\Message\SynchroniserPaiements;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
 use Symfony\Component\Scheduler\Schedule;
@@ -36,6 +37,9 @@ final class ProgrammeTaches implements ScheduleProviderInterface
 
             // Commandes non payées : stock libéré au plus 5 minutes après la fin de la réservation
             ->add(RecurringMessage::every('5 minutes', new ExpirerCommandes()))
+
+            // Paiements en ligne restés en cours (notification perdue) et remboursements à relancer
+            ->add(RecurringMessage::every('15 minutes', new SynchroniserPaiements()))
 
             // À venir : relance des paniers abandonnés.
         ;

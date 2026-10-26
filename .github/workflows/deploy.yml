@@ -196,11 +196,13 @@ jobs:
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
           PHP_BIN: ${{ vars.PHP_BIN }}
           RECHARGEMENT_PHP: ${{ vars.RECHARGEMENT_PHP }}
+          # Production (tag) : clé Mollie live_… obligatoire si une clé est configurée ; préprod : test_…
+          CLE_MOLLIE_ATTENDUE: ${{ startsWith(github.ref, 'refs/tags/') && 'live' || 'test' }}
         run: |
           RELEASE="$DEPLOY_PATH/releases/$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
           ssh vps "mkdir -p '$RELEASE'"
           ssh vps "tar xzf - -C '$RELEASE'" < release.tgz
-          ssh vps "cd '$RELEASE' && PHP_BIN='${PHP_BIN:-/usr/local/lsws/lsphp83/bin/php}' RECHARGEMENT_PHP='$RECHARGEMENT_PHP' bash deploy/activer-release.sh '$DEPLOY_PATH'"
+          ssh vps "cd '$RELEASE' && PHP_BIN='${PHP_BIN:-/usr/local/lsws/lsphp83/bin/php}' RECHARGEMENT_PHP='$RECHARGEMENT_PHP' CLE_MOLLIE_ATTENDUE='$CLE_MOLLIE_ATTENDUE' bash deploy/activer-release.sh '$DEPLOY_PATH'"
 
       - name: Vérification du site
         env:

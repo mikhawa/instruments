@@ -27,6 +27,7 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 final readonly class CreationCommandeProcessor implements ProcessorInterface
 {
     public function __construct(
+        private VueCommande $vueCommande,
         private CreationCommande $creationCommande,
         #[Autowire(service: 'limiter.creation_commande')]
         private RateLimiterFactoryInterface $creationCommandeLimiter,
@@ -55,6 +56,6 @@ final readonly class CreationCommandeProcessor implements ProcessorInterface
             throw $e->conflit ? new ConflictHttpException($e->getMessage(), $e) : new UnprocessableEntityHttpException($e->getMessage(), $e);
         }
 
-        return CommandeVue::depuis($commande, avecJeton: true);
+        return $this->vueCommande->pour($commande, avecJeton: true);
     }
 }

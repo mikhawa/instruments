@@ -7,6 +7,9 @@ doctrine:
         #server_version: '16'
 
         profiling_collect_backtrace: '%kernel.debug%'
+        # Dates toujours en UTC en base, quel que soit le fuseau de PHP
+        types:
+            datetime_immutable: App\Doctrine\Type\DateTimeImmutableUtcType
         use_savepoints: true
     orm:
         auto_generate_proxy_classes: true

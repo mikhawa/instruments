@@ -117,6 +117,7 @@ final class DashboardController extends AbstractDashboardController
 
         yield MenuItem::section('Ventes');
         yield MenuItem::linkTo(CommandeCrudController::class, 'Commandes', 'fa fa-receipt');
+        yield MenuItem::linkTo(PaiementCrudController::class, 'Paiements', 'fa fa-credit-card');
 
         yield MenuItem::section('Livraison');
         yield MenuItem::linkTo(ZoneLivraisonCrudController::class, 'Zones', 'fa fa-earth-europe');

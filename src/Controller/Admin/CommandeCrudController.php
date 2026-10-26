@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Entity\Commande;
+use App\Entity\Paiement;
+use App\Enum\PrestatairePaiement;
 use App\Service\Commande\VerrouStock;
+use App\Service\Paiement\EncaissementPaiement;
 use Doctrine\ORM\EntityManagerInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
@@ -68,6 +71,7 @@ final class CommandeCrudController extends AbstractCrudController
         private readonly EntityManagerInterface $entityManager,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly VerrouStock $verrouStock,
+        private readonly EncaissementPaiement $encaissement,
     ) {
     }
 
@@ -102,6 +106,13 @@ final class CommandeCrudController extends AbstractCrudController
             }
             $actions->add(Crud::PAGE_DETAIL, $action);
         }
+
+        $actions->add(Crud::PAGE_DETAIL, Action::new('virement_recu', 'Virement reçu', 'fa fa-building-columns')
+            ->linkToUrl(fn (Commande $commande): string => $this->urlVirementRecu($commande))
+            ->renderAsForm()
+            ->setCssClass('btn btn-success')
+            ->displayIf(fn (Commande $commande): bool => null !== $this->virementAttendu($commande))
+            ->askConfirmation('Le virement a-t-il bien été reçu sur le compte, avec le bon montant et la bonne communication structurée ?', 'Confirmer la réception'));
 
         return $actions;
     }
@@ -152,6 +163,64 @@ final class CommandeCrudController extends AbstractCrudController
             ->setAction(Action::DETAIL)
             ->setEntityId($commande->getId())
             ->generateUrl());
+    }
+
+    /**
+     * Virement constaté sur le compte : la commande est payée (ou reprise si sa réservation a expiré
+     * entre-temps et que le stock le permet, sinon le remboursement est enregistré).
+     */
+    #[AdminRoute(path: '/{entityId}/virement-recu', name: 'virement_recu', options: ['methods' => ['POST']])]
+    public function virementRecu(Request $request): RedirectResponse
+    {
+        $commande = $this->entityManager->find(Commande::class, (int) $request->attributes->get('entityId', $request->query->get('entityId')));
+        if (!$commande instanceof Commande) {
+            throw $this->createNotFoundException();
+        }
+        if (!$this->isCsrfTokenValid($this->idJeton($commande, 'virement_recu'), (string) $request->query->get('_token'))) {
+            throw $this->createAccessDeniedException('Jeton CSRF invalide.');
+        }
+
+        $paiement = $this->virementAttendu($commande);
+        if (null === $paiement) {
+            $this->addFlash('danger', sprintf('Aucun virement n\'est attendu pour la commande %s.', $commande->getNumero()));
+        } else {
+            $resultat = $this->encaissement->confirmerVirement($paiement);
+            match ($resultat) {
+                EncaissementPaiement::PAYEE, EncaissementPaiement::REPRISE => $this->addFlash('success', sprintf('Commande %s payée par virement.', $commande->getNumero())),
+                EncaissementPaiement::REMBOURSE, EncaissementPaiement::DOUBLON => $this->addFlash('warning', sprintf('Commande %s : le virement ne peut pas être affecté (commande annulée ou déjà payée). Un remboursement est à effectuer à la main par virement.', $commande->getNumero())),
+                default => $this->addFlash('danger', sprintf('Commande %s : virement non appliqué (%s), voir les journaux.', $commande->getNumero(), $resultat)),
+            };
+        }
+
+        return $this->redirect($this->adminUrlGenerator
+            ->unsetAll()
+            ->setController(self::class)
+            ->setAction(Action::DETAIL)
+            ->setEntityId($commande->getId())
+            ->generateUrl());
+    }
+
+    private function virementAttendu(Commande $commande): ?Paiement
+    {
+        foreach ($commande->getPaiements() as $paiement) {
+            if (PrestatairePaiement::Virement === $paiement->getPrestataire() && $paiement->getStatut()->isEnCours()) {
+                return $paiement;
+            }
+        }
+
+        return null;
+    }
+
+    private function urlVirementRecu(Commande $commande): string
+    {
+        return $this->adminUrlGenerator
+            ->unsetAll()
+            ->setController(self::class)
+            ->setRoute('admin_commande_virement_recu', [
+                'entityId' => $commande->getId(),
+                '_token' => $this->csrfTokenManager->getToken($this->idJeton($commande, 'virement_recu'))->getValue(),
+            ])
+            ->generateUrl();
     }
 
     private function urlTransition(Commande $commande, string $transition): string
@@ -226,6 +295,12 @@ final class CommandeCrudController extends AbstractCrudController
         yield Field::new('adresseFacturation', 'Facturation')
             ->onlyOnDetail()
             ->formatValue(static fn (array $adresse): string => $formatterAdresse($adresse));
+
+        yield FormField::addFieldset('Paiement')->hideOnForm();
+        yield CollectionField::new('paiements', 'Paiements')->onlyOnDetail();
+        yield Field::new('motifAnnulation', 'Motif d\'annulation')
+            ->onlyOnDetail()
+            ->formatValue(static fn ($motif): ?string => $motif?->value);
 
         yield FormField::addFieldset('Suivi')->hideOnForm();
         yield DateTimeField::new('expireAt', 'Réservation valable jusqu\'au')->onlyOnDetail();

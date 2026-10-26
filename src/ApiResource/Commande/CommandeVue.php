@@ -9,10 +9,14 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
+use App\ApiResource\Paiement\DemandePaiement;
+use App\ApiResource\Paiement\PaiementVue;
 use App\Entity\Commande;
 use App\State\Commande\CommandeProvider;
 use App\State\Commande\CreationCommandeProcessor;
 use App\State\Commande\MesCommandesProvider;
+use App\State\Paiement\DemandePaiementProcessor;
+use App\State\Paiement\VerificationPaiementProcessor;
 
 /**
  * Commande vue par son client.
@@ -20,7 +24,10 @@ use App\State\Commande\MesCommandesProvider;
  *  - POST /api/commandes : crée la commande à partir du panier courant et réserve le stock ;
  *  - GET /api/commandes : commandes du client connecté ;
  *  - GET /api/commandes/{numero}?jeton=… : détail pour le client connecté, ou pour un invité
- *    muni du jeton secret du lien de suivi (sinon 404).
+ *    muni du jeton secret du lien de suivi (sinon 404) ;
+ *  - POST /api/commandes/{numero}/paiements?jeton=… : démarre le paiement (en ligne ou virement) ;
+ *  - POST /api/commandes/{numero}/verification-paiement?jeton=… : relit chez le prestataire les
+ *    paiements en cours (retour du client depuis la page de paiement) et renvoie la commande.
  */
 #[ApiResource(
     shortName: 'Commande',
@@ -41,12 +48,31 @@ use App\State\Commande\MesCommandesProvider;
             requirements: ['numero' => 'CMD-\d{4}-\d{6}'],
             provider: CommandeProvider::class,
         ),
+        new Post(
+            uriTemplate: '/commandes/{numero}/paiements',
+            requirements: ['numero' => 'CMD-\d{4}-\d{6}'],
+            status: 201,
+            input: DemandePaiement::class,
+            output: PaiementVue::class,
+            read: false,
+            processor: DemandePaiementProcessor::class,
+        ),
+        new Post(
+            uriTemplate: '/commandes/{numero}/verification-paiement',
+            requirements: ['numero' => 'CMD-\d{4}-\d{6}'],
+            status: 200,
+            input: false,
+            read: false,
+            deserialize: false,
+            processor: VerificationPaiementProcessor::class,
+        ),
     ],
     paginationEnabled: false,
 )]
 final readonly class CommandeVue
 {
     /**
+     * @param list<string>               $moyensPaiement
      * @param list<LigneCommandeVue>     $lignes
      * @param array<string, string|null> $adresseLivraison
      * @param array<string, string|null> $adresseFacturation
@@ -76,10 +102,17 @@ final readonly class CommandeVue
         public ?\DateTimeImmutable $cancelledAt,
         /** Jeton du lien de suivi : renvoyé uniquement à la création (page de confirmation) */
         public ?string $jetonSuivi = null,
+        /** Moyens de paiement proposés tant que la commande attend son paiement : « en_ligne », « virement » */
+        public array $moyensPaiement = [],
+        /** Dernière tentative de paiement */
+        public ?PaiementVue $paiement = null,
     ) {
     }
 
-    public static function depuis(Commande $commande, bool $avecJeton = false): self
+    /**
+     * @param list<string> $moyensPaiement
+     */
+    public static function depuis(Commande $commande, bool $avecJeton = false, array $moyensPaiement = [], ?PaiementVue $paiement = null): self
     {
         return new self(
             numero: (string) $commande->getNumero(),
@@ -109,6 +142,8 @@ final readonly class CommandeVue
             deliveredAt: $commande->getDeliveredAt(),
             cancelledAt: $commande->getCancelledAt(),
             jetonSuivi: $avecJeton ? $commande->getJetonSuivi()->toRfc4122() : null,
+            moyensPaiement: $moyensPaiement,
+            paiement: $paiement,
         );
     }
 }

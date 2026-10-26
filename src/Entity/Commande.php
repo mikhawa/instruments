@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\MotifAnnulation;
 use App\Enum\StatutCommande;
 use App\Repository\CommandeRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -147,9 +148,19 @@ class Commande
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $cancelledAt = null;
 
+    /** Posé par HorodatageCommandeListener ; décide du sort d'un paiement reçu après l'annulation */
+    #[ORM\Column(length: 20, nullable: true, enumType: MotifAnnulation::class)]
+    private ?MotifAnnulation $motifAnnulation = null;
+
+    /** @var Collection<int, Paiement> */
+    #[ORM\OneToMany(targetEntity: Paiement::class, mappedBy: 'commande')]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $paiements;
+
     public function __construct()
     {
         $this->lignes = new ArrayCollection();
+        $this->paiements = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $this->jetonSuivi = Uuid::v4();
     }
@@ -514,5 +525,52 @@ class Commande
         $this->cancelledAt = $cancelledAt;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->numero;
+    }
+
+    public function getMotifAnnulation(): ?MotifAnnulation
+    {
+        return $this->motifAnnulation;
+    }
+
+    public function setMotifAnnulation(?MotifAnnulation $motifAnnulation): static
+    {
+        $this->motifAnnulation = $motifAnnulation;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Paiement>
+     */
+    public function getPaiements(): Collection
+    {
+        return $this->paiements;
+    }
+
+    /**
+     * Appelé par le constructeur de Paiement.
+     */
+    public function addPaiement(Paiement $paiement): static
+    {
+        if (!$this->paiements->contains($paiement)) {
+            $this->paiements->add($paiement);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Dernière tentative de paiement (la plus récente), ou NULL.
+     */
+    public function getDernierPaiement(): ?Paiement
+    {
+        $dernier = $this->paiements->last();
+
+        return false !== $dernier ? $dernier : null;
     }
 }

@@ -43,6 +43,9 @@ erDiagram
     mode_livraison |o--o{ commande : "livrée par"
     zone_livraison ||--o{ tarif_livraison : ""
     mode_livraison ||--o{ tarif_livraison : ""
+    commande ||--o{ paiement : "réglée par"
+    paiement ||--o{ remboursement : ""
+    utilisateur |o--o{ remboursement : "demandé par"
 ```
 
 ## Tables
@@ -226,6 +229,7 @@ Index : `(instrument_id, created_at)`.
 | numero_suivi | VARCHAR(100) | NULL | transporteur |
 | created_at | DATETIME | NOT NULL | |
 | paid_at, shipped_at, delivered_at, cancelled_at | DATETIME | NULL | horodatage des étapes |
+| motif_annulation | VARCHAR(20) | NULL | enum `MotifAnnulation` : `expiree`, `remplacee`, `annulee` ; décide du sort d'un paiement reçu après l'annulation |
 
 Index : `(utilisateur_id, created_at)`, `(statut, created_at)`, `(statut, expire_at)` (tâche d'expiration).
 
@@ -286,6 +290,52 @@ Index : `updated_at` (purge quotidienne des paniers visiteurs inactifs depuis 30
 
 Index unique : `(panier_id, instrument_id)`. L'ajout au panier **ne réserve pas** le stock : la réservation a lieu au passage en commande.
 
+### Paiement
+
+Phase 3 (`prepare/03-paiement.md`, décisions D4 à D6). Le statut d'un paiement ne fait foi qu'une fois **relu chez le prestataire** (`App\Service\Paiement\SynchronisationPaiement`), jamais sur la parole du client ni sur la seule notification. Toutes les dates sont stockées en **UTC** (type Doctrine `App\Doctrine\Type\DateTimeImmutableUtcType`, qui remplace `datetime_immutable`).
+
+#### `paiement`
+
+| Colonne | Type | Contraintes | Note |
+|---|---|---|---|
+| id | INT UNSIGNED | PK | sert aussi de référence à la communication structurée |
+| commande_id | INT UNSIGNED | FK → commande, ON DELETE RESTRICT | une commande peut avoir **plusieurs tentatives** |
+| prestataire | VARCHAR(20) | NOT NULL | enum `PrestatairePaiement` : `mollie`, `simulation` (dev et test), `virement` |
+| moyen | VARCHAR(30) | NULL | moyen réellement utilisé (`bancontact`, `creditcard`, `paypal`, `virement`…) |
+| id_externe | VARCHAR(100) | NULL, **UNIQUE** | `tr_…` chez Mollie |
+| url_paiement | VARCHAR(500) | NULL | page du prestataire, réutilisée 10 min (double clic) |
+| montant | INT UNSIGNED | NOT NULL, CHECK > 0 | centimes, copié de `commande.total_ttc` (jamais envoyé par le client) |
+| devise | CHAR(3) | NOT NULL, défaut `EUR` | |
+| montant_rembourse | INT UNSIGNED | NOT NULL, défaut 0, CHECK ≤ montant | |
+| statut | VARCHAR(30) | NOT NULL | enum `StatutPaiement` : `ouvert`, `en_attente`, `autorise`, `paye`, `echoue`, `annule`, `expire`, `rembourse`, `partiellement_rembourse` |
+| reference_virement | VARCHAR(21) | NULL, **UNIQUE** | communication structurée belge `+++123/4567/89002+++` (modulo 97) |
+| donnees | JSON | NULL | informations non sensibles du prestataire (libellé et pays de la carte, anomalie) ; **jamais** de numéro de carte |
+| created_at, updated_at | DATETIME | NOT NULL | |
+| paye_at | DATETIME | NULL | |
+
+Index : `(statut, created_at)` (synchronisation planifiée).
+
+#### `remboursement`
+
+| Colonne | Type | Contraintes | Note |
+|---|---|---|---|
+| id | INT UNSIGNED | PK | |
+| paiement_id | INT UNSIGNED | FK → paiement, ON DELETE RESTRICT | |
+| montant | INT UNSIGNED | NOT NULL, CHECK > 0 | centimes |
+| motif | VARCHAR(255) | NOT NULL | |
+| id_externe | VARCHAR(100) | NULL, **UNIQUE** | `re_…` chez Mollie |
+| statut | VARCHAR(20) | NOT NULL | `a_effectuer` → `en_cours` → `effectue`, ou `echoue` (refus définitif, virement à rembourser à la main) |
+| erreur | VARCHAR(255) | NULL | dernière erreur du prestataire |
+| utilisateur_id | INT UNSIGNED | FK → utilisateur, NULL, ON DELETE SET NULL | administrateur ; NULL = remboursement automatique |
+| created_at | DATETIME | NOT NULL | |
+| effectue_at | DATETIME | NULL | |
+
+Un remboursement est **enregistré** dans la transaction qui le décide, puis **envoyé** au prestataire après la validation : une panne réseau ne perd jamais un remboursement dû (la synchronisation planifiée le relance).
+
+#### `evenement_webhook`
+
+Journal des notifications reçues (`prestataire`, `reference`, `charge_utile` JSON, `recu_at`, `traite_at`, `erreur`). Index sur `reference`. Mollie n'envoie que l'identifiant du paiement, sans identifiant d'événement : l'idempotence repose sur le traitement (statut relu et appliqué une seule fois, sous verrou), pas sur ce journal.
+
 ## Cycle de vie d'une commande et effets sur le stock
 
 ```mermaid
@@ -293,6 +343,7 @@ stateDiagram-v2
     [*] --> en_attente_paiement : validation du panier
     en_attente_paiement --> payee : paiement confirmé
     en_attente_paiement --> annulee : abandon / délai dépassé
+    annulee --> payee : paiement reçu après expiration (stock encore disponible)
     payee --> en_preparation
     en_preparation --> expediee
     expediee --> livree
@@ -312,17 +363,19 @@ stateDiagram-v2
 | → `expediee` | `quantite -= n`, `quantite_reservee -= n` | `sortie` |
 | → `retournee` | `quantite += n` (si revendable) | `retour` |
 | → `remboursee` | aucun (le stock a déjà été remis à jour) | — |
+| `annulee` → `payee` (`payer_apres_expiration`) | `quantite_reservee += n` | `reservation` |
 
-Transitions Workflow : `payer`, `expirer`, `annuler`, `preparer`, `expedier`, `livrer`, `retourner`, `rembourser`. `remboursee` est l'état final des commandes annulées après paiement ou retournées.
+Transitions Workflow : `payer`, `expirer`, `payer_apres_expiration`, `annuler`, `preparer`, `expedier`, `livrer`, `retourner`, `rembourser`. `remboursee` est l'état final des commandes annulées après paiement ou retournées.
 
 Règles :
 - Les transitions passent par **Symfony Workflow** (`config/packages/workflow.yaml`), jamais par une modification directe du statut.
 - Toute écriture sur `stock` se fait dans **une transaction** avec le verrou optimiste, et crée le `mouvement_stock` correspondant. Le panier est vérifié contre la quantité disponible lors de la validation.
-- Commandes `en_attente_paiement` non payées : libérées automatiquement après **30 min** (tâche planifiée `ExpirerCommandes`, toutes les 5 minutes).
+- Commandes `en_attente_paiement` non payées : libérées automatiquement après **30 min**, ou **5 jours ouvrables** quand le client choisit le virement (tâche planifiée `ExpirerCommandes`, toutes les 5 minutes).
+- Paiement confirmé (`App\Service\Paiement\EncaissementPaiement`, sous verrou de la commande) : commande en attente → `payer` ; commande expirée → `payer_apres_expiration` si le stock suffit encore, sinon `rembourser` et remboursement intégral ; commande annulée pour un autre motif → remboursement ; commande déjà payée → paiement en double remboursé ; montant ou devise différents → rien n'est appliqué (anomalie journalisée, niveau `critical`, canal `paiement`).
+- Paiements en ligne restés en cours (notification perdue) : relus chez le prestataire toutes les 15 minutes (`SynchroniserPaiements`), qui relance aussi les remboursements non envoyés.
 
 ## Hors périmètre v1 (évolutions prévues)
 
-- **Paiement** : une table `paiement` (prestataire, identifiant de transaction, montant, statut) sera ajoutée avec le choix du prestataire (Mollie ou Stripe).
 - **Factures** : table `facture` avec une numérotation légale continue.
 - **Codes promo**, **avis clients**, **liste de souhaits**.
 
@@ -338,6 +391,10 @@ Les autres ressources seront exposées avec les voters et le Workflow de command
 | Stock (disponibilité) | public : champ calculé `disponible` uniquement | `ROLE_ADMIN` |
 | Options de livraison (`/api/panier/livraison?pays=`) | détenteur du panier | — |
 | Commandes (`/api/commandes`) | client connecté (ses commandes), ou lien de suivi `?jeton=` (`CommandeVoter`) ; 404 sinon | création : invité ou client, depuis le panier courant, 10 par 10 min et par IP |
+| Paiement (`/api/commandes/{numero}/paiements`, `/verification-paiement`) | — | mêmes droits que la lecture de la commande ; montant toujours celui de la commande ; 10 demandes par 10 min et 30 vérifications par minute, par IP |
+| Notification Mollie (`POST /api/webhooks/mollie`) | — | publique, sans CSRF : seul l'identifiant est lu, le statut est relu chez Mollie ; 120 par minute et par IP |
+| Paiement simulé (`/api/paiements/simulation/{id}`) | hors production seulement (404 en prod) | idem |
+| Paiements (back-office) | `ROLE_ADMIN` (lecture seule) | « Virement reçu » sur la commande, avec jeton CSRF |
 | Panier (`/api/panier`) | détenteur du cookie ou client connecté (`PanierVoter`) | idem ; quantités seulement, jamais de prix ; ajout limité à 30 par minute et par IP |
 | Mouvements de stock | `ROLE_ADMIN` | `ROLE_ADMIN` (création seule) |
 | Commandes (back-office) | `ROLE_ADMIN` | statut : `ROLE_ADMIN` via les transitions du Workflow |

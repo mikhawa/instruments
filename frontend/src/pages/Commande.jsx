@@ -340,8 +340,8 @@ export default function Commande() {
             {envoiEnCours ? 'Enregistrement…' : 'Valider la commande'}
           </button>
           <p className="recap__note">
-            Vos instruments sont réservés pendant 30 minutes après la validation. Le paiement en ligne sera disponible
-            prochainement.
+            Vos instruments sont réservés pendant 30 minutes après la validation ; vous choisissez ensuite votre moyen de
+            paiement.
           </p>
           <Link to="/panier" className="lien-retour">
             Modifier le panier

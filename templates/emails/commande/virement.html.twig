@@ -1,0 +1,18 @@
+{% extends 'emails/commande/_base.html.twig' %}
+
+{% block contenu %}
+    <h1 style="font-size:22px;margin:0 0 12px;">Paiement par virement</h1>
+    <p>Pour régler votre commande <strong>{{ commande.numero }}</strong>, effectuez un virement avec les informations
+        ci-dessous. Vos instruments sont réservés jusqu'au
+        <strong>{{ commande.expireAt|date('d/m/Y à H:i', 'Europe/Brussels') }}</strong>.</p>
+    <table role="presentation" style="width:100%;border-collapse:collapse;font-size:15px;margin:16px 0;">
+        <tr><td style="padding:6px 0;color:#6b625a;">Bénéficiaire</td><td style="padding:6px 0;text-align:right;">{{ coordonnees.beneficiaire }}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b625a;">IBAN</td><td style="padding:6px 0;text-align:right;white-space:nowrap;">{{ coordonnees.ibanLisible }}</td></tr>
+        {% if coordonnees.bic %}<tr><td style="padding:6px 0;color:#6b625a;">BIC</td><td style="padding:6px 0;text-align:right;">{{ coordonnees.bic }}</td></tr>{% endif %}
+        <tr><td style="padding:6px 0;color:#6b625a;">Montant</td><td style="padding:6px 0;text-align:right;font-weight:bold;">{{ paiement.montant|prix }}</td></tr>
+        <tr><td style="padding:6px 0;color:#6b625a;">Communication structurée</td><td style="padding:6px 0;text-align:right;font-weight:bold;white-space:nowrap;">{{ paiement.referenceVirement }}</td></tr>
+    </table>
+    <p style="font-size:14px;">Indiquez exactement cette communication : elle nous permet de reconnaître votre virement.
+        Nous vous écrirons dès sa réception.</p>
+    {% include 'emails/commande/_recapitulatif.html.twig' %}
+{% endblock %}

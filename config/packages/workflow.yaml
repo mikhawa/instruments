@@ -28,6 +28,12 @@ framework:
                 expirer:
                     from: en_attente_paiement
                     to: annulee
+                # Paiement confirmé après l'expiration de la réservation : la commande est reprise
+                # si le stock le permet encore (EncaissementPaiement), sinon elle est remboursée
+                payer_apres_expiration:
+                    guard: 'subject.getPaidAt() === null and subject.getMotifAnnulation() === enum("App\\Enum\\MotifAnnulation::Expiree")'
+                    from: annulee
+                    to: payee
                 annuler:
                     from: [en_attente_paiement, payee, en_preparation]
                     to: annulee

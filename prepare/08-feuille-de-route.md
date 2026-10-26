@@ -60,6 +60,15 @@ Modèle Claude conseillé (selon `CLAUDE.md`) : **H** = Haiku, **S** = Sonnet, *
 | 3.7 | Page de confirmation React (attente du statut réel) | S |
 | 3.8 | Secrets Mollie en préprod et prod (test / live), contrôle au déploiement | S |
 
+> ✅ **Réalisée le 2026-10-26** (`.claude-tasks/opus/027-…`), **sans compte Mollie** : le parcours est testé avec un faux prestataire « simulation » (dev et test seulement) et l'adaptateur Mollie avec des réponses simulées. Écarts par rapport au plan :
+> - appels à l'API Mollie avec HttpClient plutôt que le SDK `mollie/mollie-api-php` (trois points d'accès, testables avec `MockHttpClient`) ;
+> - réception des notifications par un contrôleur et un message Messenger, sans le composant Webhook/RemoteEvent ; pas d'identifiant d'événement chez Mollie : l'idempotence repose sur le traitement sous verrou ;
+> - virement direct seulement (communication structurée + QR code EPC, validation manuelle « Virement reçu ») ; pas d'import CODA ni d'API bancaire ;
+> - paiement en double remboursé automatiquement (en plus du cas « après expiration ») ;
+> - correction transversale : les dates sont désormais stockées et relues en UTC (`DateTimeImmutableUtcType`) ; avant, une date relue était décalée d'une heure ou deux (PHP en `Europe/Brussels`).
+>
+> **Reste à faire hors code** (0.3) : compte Mollie, clé `test_…` dans `shared/.env.local` de la préprod, IBAN professionnel ; puis un essai réel en préprod (Bancontact et carte de test Mollie, notification reçue, remboursement).
+
 ## Phase 4 — Factures et après-vente (v1, obligatoire avant la mise en production)
 
 | # | Tâche | Modèle |

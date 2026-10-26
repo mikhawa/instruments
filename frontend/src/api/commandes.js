@@ -54,3 +54,56 @@ export function fetchCommande(numero, jeton, signal) {
 export function fetchCommandes(signal) {
   return envoyerJson('/api/commandes', { method: 'GET', signal })
 }
+
+/**
+ * Demande un paiement pour la commande.
+ * En ligne : le corps contient `urlPaiement` (page du prestataire) ; virement : `virement` (coordonnées).
+ *
+ * @param {string} numero
+ * @param {string | null} jeton jeton de suivi (invité)
+ * @param {'en_ligne' | 'virement'} moyen
+ */
+export function demanderPaiement(numero, jeton, moyen, signal) {
+  const requete = jeton ? `?jeton=${encodeURIComponent(jeton)}` : ''
+
+  return envoyerJson(`/api/commandes/${encodeURIComponent(numero)}/paiements${requete}`, {
+    method: 'POST',
+    corps: { moyen },
+    signal,
+  })
+}
+
+/**
+ * Au retour de la page du prestataire : le serveur relit le statut du paiement chez lui
+ * et renvoie la commande à jour (la redirection seule ne prouve rien).
+ */
+export function verifierPaiement(numero, jeton, signal) {
+  const requete = jeton ? `?jeton=${encodeURIComponent(jeton)}` : ''
+
+  return envoyerJson(`/api/commandes/${encodeURIComponent(numero)}/verification-paiement${requete}`, {
+    method: 'POST',
+    corps: {},
+    signal,
+  })
+}
+
+/**
+ * Paiement simulé (dev et test seulement, 404 en production).
+ */
+export function fetchSimulation(id, signal) {
+  return envoyerJson(`/api/paiements/simulation/${encodeURIComponent(id)}`, { method: 'GET', signal })
+}
+
+/**
+ * Termine le paiement simulé avec l'issue choisie ; renvoie { urlRetour } en cas de succès.
+ *
+ * @param {string} id
+ * @param {'paye' | 'en_attente' | 'echoue' | 'annule' | 'expire'} issue
+ */
+export function choisirIssueSimulation(id, issue, signal) {
+  return envoyerJson(`/api/paiements/simulation/${encodeURIComponent(id)}`, {
+    method: 'POST',
+    corps: { issue },
+    signal,
+  })
+}

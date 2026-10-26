@@ -1,0 +1,9 @@
+{% extends 'emails/commande/_base.html.twig' %}
+
+{% block contenu %}
+    <h1 style="font-size:22px;margin:0 0 12px;">Paiement reçu, merci !</h1>
+    <p>Nous avons bien reçu le paiement de votre commande <strong>{{ commande.numero }}</strong>.
+        Nous préparons maintenant vos instruments avec soin.</p>
+    {% include 'emails/commande/_recapitulatif.html.twig' %}
+    <p style="font-size:14px;">Vous recevrez un nouvel e-mail dès l'expédition, avec le numéro de suivi du colis.</p>
+{% endblock %}

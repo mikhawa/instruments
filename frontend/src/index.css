@@ -1357,3 +1357,221 @@ a.bouton {
     transition: none;
   }
 }
+
+/* ------------------------------------------------------------------
+   Commande : paiement (choix, virement, attente, simulation)
+   ------------------------------------------------------------------ */
+.commande__succes {
+  font-family: var(--sans);
+  background: var(--vents);
+  border-left: 3px solid var(--dispo);
+  padding: 0.6rem 0.9rem;
+  border-radius: 0 var(--rayon) var(--rayon) 0;
+  max-width: 60ch;
+}
+
+.bouton--discret {
+  color: var(--encre);
+  background: transparent;
+  border: 1px solid var(--trait-fort);
+}
+
+.bouton:focus-visible,
+.choix-paiement__option:focus-visible {
+  outline: 3px solid var(--laiton);
+  outline-offset: 2px;
+}
+
+.paiement {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.paiement__sous-titre {
+  font-size: 1.15rem;
+}
+
+.choix-paiement {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.choix-paiement__boutons {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 36rem) {
+  .choix-paiement__boutons {
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
+}
+
+.choix-paiement__option {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  font-family: var(--sans);
+  color: var(--encre);
+  background: var(--surface);
+  border: 1px solid var(--trait-fort);
+  border-radius: var(--rayon);
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+}
+
+.choix-paiement__option:hover:not(:disabled) {
+  border-color: var(--laiton);
+}
+
+.choix-paiement__option:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.choix-paiement__nom {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.choix-paiement__detail {
+  color: var(--encre-douce);
+  font-size: 0.95rem;
+}
+
+/* Attente de la confirmation de la banque */
+.attente-paiement {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.attente-paiement__rond {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid var(--trait-fort);
+  border-top-color: var(--laiton);
+  border-radius: 50%;
+  animation: tourner 0.9s linear infinite;
+}
+
+@keyframes tourner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attente-paiement__rond {
+    animation: none;
+  }
+}
+
+/* Virement */
+.virement {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+}
+
+.virement__corps {
+  display: grid;
+  gap: 1.25rem;
+  justify-items: start;
+}
+
+@media (min-width: 40rem) {
+  .virement__corps {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+}
+
+.virement__liste {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  font-family: var(--sans);
+}
+
+.virement__liste dt {
+  font-size: 0.9rem;
+  color: var(--encre-douce);
+}
+
+.virement__liste dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+
+.virement__valeur {
+  font-weight: 700;
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+/* Le QR code reste sombre sur fond blanc même en thème sombre (lisibilité des lecteurs) */
+.virement__qr {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: #ffffff;
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+}
+
+/* Simulation de paiement (développement) */
+.simulation__bandeau {
+  font: 700 1.1rem var(--sans);
+  color: #1f2a4d;
+  background: #ffd23f;
+  border: 3px dashed #1f2a4d;
+  border-radius: var(--rayon);
+  padding: 0.9rem 1rem;
+  width: 100%;
+  text-align: center;
+}
+
+.simulation__resume {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  margin: 0;
+  font-family: var(--sans);
+}
+
+.simulation__resume dt {
+  font-size: 0.9rem;
+  color: var(--encre-douce);
+}
+
+.simulation__resume dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.simulation__issues {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.simulation__boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
