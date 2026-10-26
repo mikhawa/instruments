@@ -8,7 +8,7 @@ import DetailCommande from '../components/DetailCommande.jsx'
  * Le jeton de l'URL remplace la connexion ; un client connecté propriétaire n'en a pas besoin.
  */
 export default function CommandeSuivi() {
-  const { commande } = useLoaderData()
+  const { commande, jeton } = useLoaderData()
   const { utilisateur } = useRouteLoaderData('racine') ?? {}
 
   if (!commande) return <CommandeIntrouvable />
@@ -20,7 +20,7 @@ export default function CommandeSuivi() {
 
       {commande.statut === 'en_attente_paiement' && <ChoixPaiement commande={commande} />}
 
-      <DetailCommande commande={commande} frise />
+      <DetailCommande commande={commande} jeton={jeton} frise />
 
       {utilisateur && (
         <Link to="/compte/commandes" className="lien-retour">

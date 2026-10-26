@@ -88,6 +88,10 @@ final class CommandeTest extends WebTestCase
     {
         $connexion = $this->entityManager->getConnection();
         $instruments = 'SELECT id FROM instrument WHERE reference LIKE ?';
+        // Factures (ON DELETE RESTRICT) : notes de crédit d'abord, puis factures
+        $commandes = "SELECT DISTINCT l.commande_id FROM ligne_commande l WHERE l.instrument_id IN ($instruments)";
+        $connexion->executeStatement("DELETE FROM facture WHERE facture_origine_id IS NOT NULL AND commande_id IN ($commandes)", [self::PREFIXE.'%']);
+        $connexion->executeStatement("DELETE FROM facture WHERE commande_id IN ($commandes)", [self::PREFIXE.'%']);
         $connexion->executeStatement("DELETE FROM mouvement_stock WHERE instrument_id IN ($instruments)", [self::PREFIXE.'%']);
         $connexion->executeStatement("DELETE c FROM commande c JOIN ligne_commande l ON l.commande_id = c.id WHERE l.instrument_id IN ($instruments)", [self::PREFIXE.'%']);
         $connexion->executeStatement("DELETE p FROM panier p JOIN ligne_panier l ON l.panier_id = p.id WHERE l.instrument_id IN ($instruments)", [self::PREFIXE.'%']);

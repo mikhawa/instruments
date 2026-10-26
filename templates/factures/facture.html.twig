@@ -1,0 +1,144 @@
+{# Facture ou note de crédit en PDF (dompdf) : uniquement les données figées de la facture #}
+{% set l = facture.locale %}
+{% set note = facture.noteCredit %}
+<!DOCTYPE html>
+<html lang="{{ l }}">
+<head>
+<meta charset="utf-8">
+<title>{{ ('titre.' ~ facture.type.value)|trans({}, 'factures', l) }} {{ facture.numero }}</title>
+<style>
+    @page { margin: 18mm 16mm 20mm; }
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 9.5pt; color: #1f2a4d; }
+    h1 { font-size: 20pt; margin: 0 0 4mm; }
+    table { width: 100%; border-collapse: collapse; }
+    .entete td { vertical-align: top; }
+    .vendeur-nom { font-size: 13pt; font-weight: bold; color: #8a6212; }
+    .bloc { margin-top: 8mm; }
+    .meta td { padding: 1mm 0; }
+    .meta td.libelle { color: #4d5675; width: 32mm; }
+    .lignes th { text-align: left; border-bottom: 1.5pt solid #1f2a4d; padding: 2mm 1.5mm; font-size: 8.5pt; }
+    .lignes td { border-bottom: 0.5pt solid #c9ccd8; padding: 2mm 1.5mm; vertical-align: top; }
+    .nombre { text-align: right; white-space: nowrap; }
+    .totaux { width: 45%; margin-left: 55%; margin-top: 5mm; }
+    .totaux td { padding: 1.2mm 1.5mm; }
+    .totaux .total td { border-top: 1.5pt solid #1f2a4d; font-weight: bold; font-size: 11pt; }
+    .ventilation { width: 60%; margin-top: 6mm; font-size: 8.5pt; }
+    .ventilation th, .ventilation td { padding: 1.2mm 1.5mm; border-bottom: 0.5pt solid #c9ccd8; }
+    .mentions { margin-top: 7mm; font-size: 8.5pt; color: #4d5675; }
+    .mentions p { margin: 0 0 1.5mm; }
+    .pied { position: fixed; bottom: -12mm; left: 0; right: 0; font-size: 7.5pt; color: #4d5675; text-align: center; }
+</style>
+</head>
+<body>
+{% set v = facture.vendeur %}
+<div class="pied">{{ v.nom }} — {{ v.adresse|join(', ') }} — {{ 'vendeur.tva'|trans({}, 'factures', l) }} {{ v.tva }}{% if v.iban %} — {{ 'vendeur.iban'|trans({}, 'factures', l) }} {{ v.iban }}{% endif %}</div>
+
+<table class="entete">
+    <tr>
+        <td style="width: 55%;">
+            <div class="vendeur-nom">{{ v.nom }}</div>
+            {% for ligne in v.adresse %}{{ ligne }}<br>{% endfor %}
+            {{ 'vendeur.tva'|trans({}, 'factures', l) }} {{ v.tva }}<br>
+            {% if v.email %}{{ v.email }}<br>{% endif %}
+            {% if v.iban %}{{ 'vendeur.iban'|trans({}, 'factures', l) }} {{ v.iban }}{% if v.bic %} — BIC {{ v.bic }}{% endif %}{% endif %}
+        </td>
+        <td>
+            <h1>{{ ('titre.' ~ facture.type.value)|trans({}, 'factures', l) }}</h1>
+            <table class="meta">
+                <tr><td class="libelle">{{ 'numero'|trans({}, 'factures', l) }}</td><td><strong>{{ facture.numero }}</strong></td></tr>
+                <tr><td class="libelle">{{ 'date'|trans({}, 'factures', l) }}</td><td>{{ facture.dateEmission|date('d/m/Y', 'Europe/Brussels') }}</td></tr>
+                <tr><td class="libelle">{{ 'commande'|trans({}, 'factures', l) }}</td><td>{{ facture.commande.numero }}</td></tr>
+                {% if facture.factureOrigine %}
+                    <tr><td class="libelle">{{ 'facture_origine'|trans({}, 'factures', l) }}</td><td>{{ facture.factureOrigine.numero }}</td></tr>
+                {% endif %}
+            </table>
+        </td>
+    </tr>
+</table>
+
+{% set c = facture.client %}
+<div class="bloc">
+    <strong>{{ 'client'|trans({}, 'factures', l) }}</strong><br>
+    {{ c.nom }}<br>
+    {% if c.societe %}{{ c.societe }}<br>{% endif %}
+    {{ c.rue }}<br>
+    {% if c.complement %}{{ c.complement }}<br>{% endif %}
+    {{ c.codePostal }} {{ c.ville }}<br>
+    {{ c.pays|pays(l) }}<br>
+    {{ c.email }}
+</div>
+
+<table class="lignes bloc">
+    <thead>
+        <tr>
+            <th>{{ 'colonne.reference'|trans({}, 'factures', l) }}</th>
+            <th>{{ 'colonne.designation'|trans({}, 'factures', l) }}</th>
+            <th class="nombre">{{ 'colonne.quantite'|trans({}, 'factures', l) }}</th>
+            <th class="nombre">{{ 'colonne.prix_unitaire'|trans({}, 'factures', l) }}</th>
+            <th class="nombre">{{ 'colonne.taux'|trans({}, 'factures', l) }}</th>
+            <th class="nombre">{{ 'colonne.total_ht'|trans({}, 'factures', l) }}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ligne in facture.lignes %}
+            <tr>
+                <td>{{ ligne.reference }}</td>
+                <td>{{ ligne.libelle }}{% if ligne.regimeTva != 'normal' %} *{% endif %}</td>
+                <td class="nombre">{{ ligne.quantite }}</td>
+                <td class="nombre">{{ ligne.prixUnitaireHt|prix(l) }}</td>
+                <td class="nombre">{{ ligne.tauxTva is null ? 'sans_tva'|trans({}, 'factures', l) : (ligne.tauxTva / 100)|number_format(ligne.tauxTva % 100 ? 1 : 0, ',') ~ ' %' }}</td>
+                <td class="nombre">{{ ligne.totalHt|prix(l) }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{# Régime de la marge : son montant n'est pas « hors TVA », il est présenté à part #}
+{% set total_marge = 0 %}
+{% for ligne in facture.lignes|filter(ligne => ligne.regimeTva != 'normal') %}{% set total_marge = total_marge + ligne.totalTtc %}{% endfor %}
+<table class="totaux">
+    {% if facture.ventilationTva is not empty or total_marge == 0 %}
+        <tr><td>{{ 'total.ht'|trans({}, 'factures', l) }}</td><td class="nombre">{{ (facture.totalHt - total_marge)|prix(l) }}</td></tr>
+    {% endif %}
+    {% if total_marge > 0 %}
+        <tr><td>{{ 'total.marge'|trans({}, 'factures', l) }}&nbsp;*</td><td class="nombre">{{ total_marge|prix(l) }}</td></tr>
+    {% endif %}
+    <tr><td>{{ 'total.tva'|trans({}, 'factures', l) }}</td><td class="nombre">{{ facture.totalTva|prix(l) }}</td></tr>
+    <tr class="total"><td>{{ ('total.ttc_' ~ facture.type.value)|trans({}, 'factures', l) }}</td><td class="nombre">{{ facture.totalTtc|prix(l) }}</td></tr>
+</table>
+
+{% if facture.ventilationTva is not empty %}
+    <table class="ventilation">
+        <tr>
+            <th style="text-align: left;">{{ 'ventilation.titre'|trans({}, 'factures', l) }}</th>
+            <th class="nombre">{{ 'ventilation.base'|trans({}, 'factures', l) }}</th>
+            <th class="nombre">{{ 'ventilation.tva'|trans({}, 'factures', l) }}</th>
+        </tr>
+        {% for v in facture.ventilationTva %}
+            <tr>
+                <td>{{ (v.taux / 100)|number_format(v.taux % 100 ? 1 : 0, ',') }} %</td>
+                <td class="nombre">{{ v.base|prix(l) }}</td>
+                <td class="nombre">{{ v.tva|prix(l) }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+{% endif %}
+
+<div class="mentions">
+    {% for mention in facture.mentions %}
+        <p>* {{ mention|trans({}, 'factures', l) }}</p>
+    {% endfor %}
+    {% if facture.motif %}
+        <p>{{ 'motif'|trans({'%motif%': facture.motif}, 'factures', l) }}</p>
+    {% endif %}
+    {% if facture.payeeAt and not note %}
+        {# Moyen inconnu des traductions : son code tel quel #}
+        {% set cle_moyen = 'moyen_paiement.' ~ facture.moyenPaiement %}
+        {% set nom_moyen = cle_moyen|trans({}, 'factures', l) %}
+        {% set nom_moyen = nom_moyen == cle_moyen ? facture.moyenPaiement : nom_moyen %}
+        <p>{{ 'acquittee'|trans({'%date%': facture.payeeAt|date('d/m/Y', 'Europe/Brussels'), '%moyen%': facture.moyenPaiement ? 'moyen'|trans({'%moyen%': nom_moyen}, 'factures', l) : ''}, 'factures', l) }}</p>
+    {% endif %}
+    <p>{{ 'pied'|trans({}, 'factures', l) }}</p>
+</div>
+</body>
+</html>

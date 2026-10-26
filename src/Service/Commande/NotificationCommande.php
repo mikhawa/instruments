@@ -6,6 +6,7 @@ namespace App\Service\Commande;
 
 use App\Entity\Commande;
 use App\Entity\Paiement;
+use App\Service\Facturation\GenerateurPdfFacture;
 use App\Service\Paiement\Virement\CoordonneesVirement;
 use App\Service\UrlSite;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
@@ -23,6 +24,7 @@ final readonly class NotificationCommande
         private MailerInterface $mailer,
         private UrlSite $urlSite,
         private CoordonneesVirement $coordonneesVirement,
+        private GenerateurPdfFacture $generateurPdf,
         #[Autowire(env: 'MAILER_EXPEDITEUR')]
         private string $expediteur,
     ) {
@@ -33,9 +35,18 @@ final readonly class NotificationCommande
         $this->envoyer($commande, 'enregistree', \sprintf('Votre commande %s est enregistrée', $commande->getNumero()));
     }
 
+    /**
+     * Confirmation du paiement, avec la facture en pièce jointe.
+     */
     public function commandePayee(Commande $commande): void
     {
-        $this->envoyer($commande, 'payee', \sprintf('Paiement reçu pour votre commande %s', $commande->getNumero()));
+        $pieces = [];
+        foreach ($commande->getFactures() as $facture) {
+            if (!$facture->isNoteCredit()) {
+                $pieces[$this->generateurPdf->nomFichier($facture)] = $this->generateurPdf->pdf($facture);
+            }
+        }
+        $this->envoyer($commande, 'payee', \sprintf('Paiement reçu pour votre commande %s', $commande->getNumero()), pieces: $pieces);
     }
 
     /**
@@ -44,6 +55,14 @@ final readonly class NotificationCommande
     public function paiementRembourse(Commande $commande, int $montant): void
     {
         $this->envoyer($commande, 'remboursee', \sprintf('Commande %s : remboursement de votre paiement', $commande->getNumero()), ['montant' => $montant]);
+    }
+
+    /**
+     * Remboursement (total ou partiel) accordé par le magasin, sans annulation de la commande.
+     */
+    public function remboursementAccorde(Commande $commande, int $montant, string $motif): void
+    {
+        $this->envoyer($commande, 'remboursement', \sprintf('Commande %s : remboursement de %s €', $commande->getNumero(), number_format($montant / 100, 2, ',', ' ')), ['montant' => $montant, 'motif' => $motif]);
     }
 
     public function instructionsVirement(Paiement $paiement): void
@@ -74,11 +93,16 @@ final readonly class NotificationCommande
     }
 
     /**
-     * @param array<string, mixed> $contexte
+     * @param array<string, mixed>  $contexte
+     * @param array<string, string> $pieces   nom du fichier PDF => contenu
      */
-    private function envoyer(Commande $commande, string $modele, string $sujet, array $contexte = []): void
+    private function envoyer(Commande $commande, string $modele, string $sujet, array $contexte = [], array $pieces = []): void
     {
-        $this->mailer->send((new TemplatedEmail())
+        $email = new TemplatedEmail();
+        foreach ($pieces as $nom => $contenu) {
+            $email->attach($contenu, $nom, 'application/pdf');
+        }
+        $this->mailer->send($email
             ->from(Address::create($this->expediteur))
             ->to(new Address((string) $commande->getEmail(), $commande->getNomClient()))
             ->subject($sujet)

@@ -1154,6 +1154,22 @@ a.bouton {
   white-space: nowrap;
 }
 
+.detail-commande__factures {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  font-family: var(--sans);
+}
+
+.detail-commande__factures li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
 .detail-commande__suivi {
   font-family: var(--sans);
 }

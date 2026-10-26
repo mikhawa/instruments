@@ -21,3 +21,9 @@ classe_livraison:
     hors_norme: Hors norme
     transport_dedie: Transport dédié (sur devis)
     retrait_uniquement: Retrait à l'atelier uniquement
+
+regime_tva:
+    normal: Régime normal
+    marge_occasion: Régime de la marge — biens d'occasion
+    marge_antiquite: Régime de la marge — objets d'antiquité
+    marge_art: Régime de la marge — objets d'art

@@ -152,6 +152,11 @@ class Commande
     #[ORM\Column(length: 20, nullable: true, enumType: MotifAnnulation::class)]
     private ?MotifAnnulation $motifAnnulation = null;
 
+    /** @var Collection<int, Facture> */
+    #[ORM\OneToMany(targetEntity: Facture::class, mappedBy: 'commande')]
+    #[ORM\OrderBy(['id' => 'ASC'])]
+    private Collection $factures;
+
     /** @var Collection<int, Paiement> */
     #[ORM\OneToMany(targetEntity: Paiement::class, mappedBy: 'commande')]
     #[ORM\OrderBy(['id' => 'ASC'])]
@@ -161,6 +166,7 @@ class Commande
     {
         $this->lignes = new ArrayCollection();
         $this->paiements = new ArrayCollection();
+        $this->factures = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $this->jetonSuivi = Uuid::v4();
     }
@@ -572,5 +578,25 @@ class Commande
         $dernier = $this->paiements->last();
 
         return false !== $dernier ? $dernier : null;
+    }
+
+    /**
+     * @return Collection<int, Facture>
+     */
+    public function getFactures(): Collection
+    {
+        return $this->factures;
+    }
+
+    /**
+     * Appelé par le constructeur de Facture.
+     */
+    public function addFacture(Facture $facture): static
+    {
+        if (!$this->factures->contains($facture)) {
+            $this->factures->add($facture);
+        }
+
+        return $this;
     }
 }

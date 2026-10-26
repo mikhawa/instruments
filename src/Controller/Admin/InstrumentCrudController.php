@@ -90,6 +90,16 @@ final class InstrumentCrudController extends AbstractCrudController
             ->setCurrency('EUR')
             ->setStoredAsCents()
             ->hideOnForm();
+        yield ChoiceField::new('regimeTva', 'Régime de TVA')
+            ->setHelp('Régime de la marge : bien acheté sans TVA déductible (à un particulier, en dépôt-vente…). La TVA porte sur la marge et n\'apparaît pas sur la facture. À valider avec le comptable.')
+            ->hideOnIndex();
+        yield MoneyField::new('prixAchat', 'Prix d\'achat')
+            ->setCurrency('EUR')
+            ->setStoredAsCents()
+            ->setFormTypeOption('input', 'integer')
+            ->setRequired(false)
+            ->setHelp('Obligatoire sous le régime de la marge (calcul de la TVA due). Jamais visible sur le site.')
+            ->hideOnIndex();
 
         yield FormField::addTab('Logistique', 'fa fa-truck');
         yield ChoiceField::new('classeLivraison', 'Classe de livraison')

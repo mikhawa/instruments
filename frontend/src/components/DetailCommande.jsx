@@ -1,5 +1,5 @@
 import { formaterPrix, nomPays } from '../lib/format.js'
-import { formaterDateHeure, libelleStatut } from '../lib/commande.js'
+import { formaterDate, formaterDateHeure, libelleStatut } from '../lib/commande.js'
 
 const ETAPES = [
   { statut: 'en_attente_paiement', libelle: 'Commandée' },
@@ -77,11 +77,42 @@ function BlocAdresse({ titre, adresse }) {
 }
 
 /**
- * Détail d'une commande, commun à la confirmation et au suivi : articles, totaux, adresses, livraison.
- *
- * @param {{ commande: object, frise?: boolean }} props
+ * Factures et notes de crédit à télécharger (PDF servi par l'API, avec le jeton du lien de suivi pour un invité).
  */
-export default function DetailCommande({ commande, frise = false }) {
+function ListeFactures({ commande, jeton }) {
+  const factures = commande.factures ?? []
+  if (factures.length === 0) return null
+  const requete = jeton ? `?jeton=${encodeURIComponent(jeton)}` : ''
+
+  return (
+    <section className="detail-commande__bloc">
+      <h3>Factures</h3>
+      <ul className="detail-commande__factures">
+        {factures.map((facture) => (
+          <li key={facture.numero}>
+            <a
+              href={`/api/commandes/${encodeURIComponent(commande.numero)}/factures/${encodeURIComponent(facture.numero)}.pdf${requete}`}
+              target="_blank"
+              rel="noopener"
+            >
+              {facture.type === 'note_credit' ? 'Note de crédit' : 'Facture'} {facture.numero}
+            </a>
+            <span className="detail-commande__montant">
+              {formaterDate(facture.dateEmission)} · {formaterPrix(facture.totalTtc)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * Détail d'une commande, commun à la confirmation et au suivi : articles, totaux, factures, adresses, livraison.
+ *
+ * @param {{ commande: object, frise?: boolean, jeton?: string | null }} props
+ */
+export default function DetailCommande({ commande, frise = false, jeton = null }) {
   return (
     <div className="detail-commande">
       <dl className="detail-commande__entete">
@@ -147,6 +178,8 @@ export default function DetailCommande({ commande, frise = false }) {
           </div>
         </dl>
       </section>
+
+      <ListeFactures commande={commande} jeton={jeton} />
 
       <div className="detail-commande__adresses">
         <BlocAdresse titre="Adresse de livraison" adresse={commande.adresseLivraison} />

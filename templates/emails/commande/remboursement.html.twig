@@ -1,0 +1,9 @@
+{% extends 'emails/commande/_base.html.twig' %}
+
+{% block contenu %}
+    <h1 style="font-size:22px;margin:0 0 12px;">Remboursement en cours</h1>
+    <p>Nous vous remboursons <strong>{{ montant|prix }}</strong> pour votre commande <strong>{{ commande.numero }}</strong>.</p>
+    <p style="font-size:14px;color:#6b625a;">Motif : {{ motif }}</p>
+    <p>Le remboursement est fait sur le moyen de paiement utilisé. Selon votre banque, le montant apparaît sur votre compte
+        sous quelques jours ouvrables. La note de crédit est disponible depuis la page de suivi de la commande.</p>
+{% endblock %}

@@ -6,9 +6,11 @@ namespace App\Controller\Admin;
 
 use App\Entity\Commande;
 use App\Entity\Paiement;
+use App\Entity\Utilisateur;
 use App\Enum\PrestatairePaiement;
 use App\Service\Commande\VerrouStock;
 use App\Service\Paiement\EncaissementPaiement;
+use App\Service\Paiement\RemboursementCommande;
 use Doctrine\ORM\EntityManagerInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
@@ -26,9 +28,14 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\MoneyType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Workflow\Exception\LogicException;
 use Symfony\Component\Workflow\WorkflowInterface;
 
@@ -37,7 +44,8 @@ use Symfony\Component\Workflow\WorkflowInterface;
  * Création et suppression interdites ; seul le numéro de suivi est modifiable.
  * Les changements de statut passent par le workflow « commande » (boutons du détail) ; le stock,
  * les dates et les e-mails sont gérés par les écouteurs du workflow, pas ici.
- * Les transitions « payer » et « rembourser » relèvent du paiement et ne sont pas exposées.
+ * Les transitions « payer » et « rembourser » relèvent du paiement et ne sont pas exposées :
+ * une commande payée s'annule ou se rembourse par le formulaire « Rembourser » (note de crédit comprise).
  *
  * @extends AbstractCrudController<Commande>
  */
@@ -72,6 +80,7 @@ final class CommandeCrudController extends AbstractCrudController
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly VerrouStock $verrouStock,
         private readonly EncaissementPaiement $encaissement,
+        private readonly RemboursementCommande $remboursementCommande,
     ) {
     }
 
@@ -100,7 +109,9 @@ final class CommandeCrudController extends AbstractCrudController
                 ->linkToUrl(fn (Commande $commande): string => $this->urlTransition($commande, $transition))
                 ->renderAsForm()
                 ->setCssClass($classe)
-                ->displayIf(fn (Commande $commande): bool => $this->workflow->can($commande, $transition));
+                // Une commande payée s'annule par « Rembourser » : jamais d'annulation qui garde l'argent du client
+                ->displayIf(fn (Commande $commande): bool => $this->workflow->can($commande, $transition)
+                    && ('annuler' !== $transition || null === $commande->getPaidAt()));
             if ('annuler' === $transition) {
                 $action->askConfirmation('Annuler cette commande ? Le stock réservé sera libéré.', 'Annuler la commande');
             }
@@ -114,7 +125,83 @@ final class CommandeCrudController extends AbstractCrudController
             ->displayIf(fn (Commande $commande): bool => null !== $this->virementAttendu($commande))
             ->askConfirmation('Le virement a-t-il bien été reçu sur le compte, avec le bon montant et la bonne communication structurée ?', 'Confirmer la réception'));
 
+        $actions->add(Crud::PAGE_DETAIL, Action::new('rembourser', 'Rembourser', 'fa fa-hand-holding-dollar')
+            ->linkToUrl(fn (Commande $commande): string => $this->adminUrlGenerator
+                ->unsetAll()
+                ->setController(self::class)
+                ->setRoute('admin_commande_remboursement', ['entityId' => $commande->getId()])
+                ->generateUrl())
+            ->setCssClass('btn btn-outline-danger')
+            ->displayIf(fn (Commande $commande): bool => $this->remboursementCommande->remboursable($commande) > 0));
+
         return $actions;
+    }
+
+    /**
+     * Formulaire de remboursement, total ou partiel, avec annulation de la commande si elle n'est pas expédiée.
+     * Le formulaire Symfony porte son propre jeton CSRF.
+     */
+    #[AdminRoute(path: '/{entityId}/remboursement', name: 'remboursement', options: ['methods' => ['GET', 'POST']])]
+    public function rembourser(Request $request): Response
+    {
+        $commande = $this->entityManager->find(Commande::class, (int) $request->attributes->get('entityId', $request->query->get('entityId')));
+        if (!$commande instanceof Commande) {
+            throw $this->createNotFoundException();
+        }
+        $urlDetail = $this->adminUrlGenerator->unsetAll()->setController(self::class)->setAction(Action::DETAIL)->setEntityId($commande->getId())->generateUrl();
+        $remboursable = $this->remboursementCommande->remboursable($commande);
+        if ($remboursable <= 0) {
+            $this->addFlash('warning', sprintf('Rien à rembourser sur la commande %s.', $commande->getNumero()));
+
+            return $this->redirect($urlDetail);
+        }
+
+        $annulable = $this->remboursementCommande->peutAnnuler($commande);
+        // Annulation décochée par défaut : un geste commercial ne doit jamais annuler la commande par mégarde
+        $constructeur = $this->createFormBuilder(['montant' => $remboursable, 'annuler' => false])
+            ->add('montant', MoneyType::class, [
+                'label' => 'Montant à rembourser',
+                'currency' => 'EUR',
+                'divisor' => 100,
+                'constraints' => [new Assert\NotNull(), new Assert\Range(min: 1, max: $remboursable)],
+            ])
+            ->add('motif', TextType::class, [
+                'label' => 'Motif (visible par le client et sur la note de crédit)',
+                'constraints' => [new Assert\NotBlank(), new Assert\Length(max: 255)],
+            ]);
+        if ($annulable) {
+            $constructeur->add('annuler', CheckboxType::class, [
+                'label' => 'Annuler aussi la commande (le stock réservé est libéré)',
+                'required' => false,
+            ]);
+        }
+        $formulaire = $constructeur->getForm()->handleRequest($request);
+
+        if ($formulaire->isSubmitted() && $formulaire->isValid()) {
+            $donnees = $formulaire->getData();
+            $administrateur = $this->getUser();
+            try {
+                $this->remboursementCommande->rembourser(
+                    $commande,
+                    (int) $donnees['montant'],
+                    (string) $donnees['motif'],
+                    $administrateur instanceof Utilisateur ? $administrateur : null,
+                    (bool) ($donnees['annuler'] ?? false),
+                );
+                $this->addFlash('success', sprintf('Commande %s : remboursement de %s € enregistré.', $commande->getNumero(), number_format((int) $donnees['montant'] / 100, 2, ',', ' ')));
+
+                return $this->redirect($urlDetail);
+            } catch (\DomainException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        }
+
+        return $this->render('admin/remboursement.html.twig', [
+            'commande' => $commande,
+            'remboursable' => $remboursable,
+            'formulaire' => $formulaire->createView(),
+            'urlRetour' => $urlDetail,
+        ]);
     }
 
     /**
@@ -136,6 +223,8 @@ final class CommandeCrudController extends AbstractCrudController
         $libelle = self::TRANSITIONS[$transition][0];
         if ('expedier' === $transition && '' === trim((string) $commande->getNumeroSuivi())) {
             $this->addFlash('danger', 'Saisissez le numéro de suivi (bouton « Modifier ») avant de marquer la commande comme expédiée.');
+        } elseif ('annuler' === $transition && null !== $commande->getPaidAt()) {
+            $this->addFlash('danger', sprintf('La commande %s est payée : utilisez « Rembourser » (avec annulation) pour rendre l\'argent au client.', $commande->getNumero()));
         } elseif (!$this->workflow->can($commande, $transition)) {
             $this->addFlash('danger', sprintf('« %s » n\'est pas possible pour la commande %s dans son état actuel.', $libelle, $commande->getNumero()));
         } else {
@@ -298,6 +387,7 @@ final class CommandeCrudController extends AbstractCrudController
 
         yield FormField::addFieldset('Paiement')->hideOnForm();
         yield CollectionField::new('paiements', 'Paiements')->onlyOnDetail();
+        yield CollectionField::new('factures', 'Factures et notes de crédit')->onlyOnDetail();
         yield Field::new('motifAnnulation', 'Motif d\'annulation')
             ->onlyOnDetail()
             ->formatValue(static fn ($motif): ?string => $motif?->value);

@@ -139,10 +139,10 @@ final class LivraisonCommandeAdminTest extends WebTestCase
         $crawler = $this->client->request('GET', '/admin/commande/'.$this->idCommande);
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Invité');
-        // Payée : « préparer » et « annuler » seulement
+        // Payée : « préparer » seulement ; l'annulation d'une commande payée passe par « Rembourser »
         $texte = $crawler->filter('body')->text();
         self::assertStringContainsString('Préparer la commande', $texte);
-        self::assertStringContainsString('Annuler la commande', $texte);
+        self::assertStringNotContainsString('Annuler la commande', $texte);
         self::assertStringNotContainsString('Marquer comme expédiée', $texte);
 
         // Préparer

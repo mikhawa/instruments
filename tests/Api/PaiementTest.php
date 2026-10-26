@@ -96,6 +96,8 @@ final class PaiementTest extends WebTestCase
         $connexion = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
         $instruments = 'SELECT id FROM instrument WHERE reference LIKE ?';
         $commandes = "SELECT DISTINCT l.commande_id FROM ligne_commande l WHERE l.instrument_id IN ($instruments)";
+        $connexion->executeStatement("DELETE FROM facture WHERE facture_origine_id IS NOT NULL AND commande_id IN ($commandes)", [self::PREFIXE.'%']);
+        $connexion->executeStatement("DELETE FROM facture WHERE commande_id IN ($commandes)", [self::PREFIXE.'%']);
         $connexion->executeStatement("DELETE r FROM remboursement r JOIN paiement p ON p.id = r.paiement_id WHERE p.commande_id IN ($commandes)", [self::PREFIXE.'%']);
         $connexion->executeStatement("DELETE FROM paiement WHERE commande_id IN ($commandes)", [self::PREFIXE.'%']);
         $connexion->executeStatement('DELETE FROM evenement_webhook WHERE reference LIKE ?', ['tr_Test%']);

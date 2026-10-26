@@ -73,6 +73,7 @@ final readonly class CommandeVue
 {
     /**
      * @param list<string>               $moyensPaiement
+     * @param list<FactureVue>           $factures
      * @param list<LigneCommandeVue>     $lignes
      * @param array<string, string|null> $adresseLivraison
      * @param array<string, string|null> $adresseFacturation
@@ -106,6 +107,8 @@ final readonly class CommandeVue
         public array $moyensPaiement = [],
         /** Dernière tentative de paiement */
         public ?PaiementVue $paiement = null,
+        /** Factures et notes de crédit, dans l'ordre d'émission */
+        public array $factures = [],
     ) {
     }
 
@@ -144,6 +147,12 @@ final readonly class CommandeVue
             jetonSuivi: $avecJeton ? $commande->getJetonSuivi()->toRfc4122() : null,
             moyensPaiement: $moyensPaiement,
             paiement: $paiement,
+            factures: array_values(array_map(static fn ($facture): FactureVue => new FactureVue(
+                numero: $facture->getNumero(),
+                type: $facture->getType()->value,
+                dateEmission: $facture->getDateEmission(),
+                totalTtc: $facture->getTotalTtc(),
+            ), $commande->getFactures()->toArray())),
         );
     }
 }

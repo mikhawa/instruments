@@ -38,7 +38,7 @@ export default function CommandeConfirmation() {
         Un e-mail de confirmation a été envoyé à <strong>{commande.email}</strong>.
       </p>
 
-      <DetailCommande commande={commande} />
+      <DetailCommande commande={commande} jeton={jeton} />
 
       <section className="commande__suivi" aria-labelledby="titre-lien-suivi">
         <h2 id="titre-lien-suivi">Suivre cette commande</h2>

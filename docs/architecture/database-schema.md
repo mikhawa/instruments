@@ -127,6 +127,8 @@ Données non traduisibles de l'instrument.
 | is_piece_unique | TINYINT(1) | NOT NULL, défaut 0 | pièce de collection (stock max 1) |
 | prix_ht | INT UNSIGNED | NOT NULL | centimes |
 | taux_tva | SMALLINT UNSIGNED | NOT NULL, défaut 2100 | points de base |
+| regime_tva | VARCHAR(20) | NOT NULL, défaut `normal` | enum `RegimeTva` : `normal`, `marge_occasion`, `marge_antiquite`, `marge_art` (régime de la marge : aucune TVA visible, voir prepare/06 § 1.2) |
+| prix_achat | INT UNSIGNED | NULL | centimes TTC ; **back-office seulement**, jamais exposé par l'API ; obligatoire sous le régime de la marge |
 | poids_grammes | INT UNSIGNED | NULL | calcul des frais de port |
 | dimensions | VARCHAR(100) | NULL | texte libre, ex. `78 × 36 × 18 cm` |
 | is_published | TINYINT(1) | NOT NULL, défaut 0 | visible sur le site |
@@ -249,6 +251,8 @@ Chaque ligne **recopie** libellé, référence et prix : une modification ou sup
 | total_ht | INT UNSIGNED | NOT NULL | `prix_unitaire_ht × quantite` |
 | prix_unitaire_ttc | INT UNSIGNED | NOT NULL | arrondi(`prix_unitaire_ht × (1 + taux)`), comme le panier |
 | total_ttc | INT UNSIGNED | NOT NULL | `prix_unitaire_ttc × quantite` ; TVA de la ligne = `total_ttc − total_ht` |
+| regime_tva | VARCHAR(20) | NOT NULL, défaut `normal` | copie ; sous le régime de la marge, `prix_unitaire_ht = prix_unitaire_ttc` et `total_ht = total_ttc` (TVA visible nulle) |
+| tva_marge | INT | NULL | régime de la marge : TVA due sur la marge, `(total_ttc − prix_achat × quantite) × taux / (1 + taux)`, pour la comptabilité seulement |
 
 ### Livraison
 
@@ -336,6 +340,36 @@ Un remboursement est **enregistré** dans la transaction qui le décide, puis **
 
 Journal des notifications reçues (`prestataire`, `reference`, `charge_utile` JSON, `recu_at`, `traite_at`, `erreur`). Index sur `reference`. Mollie n'envoie que l'identifiant du paiement, sans identifiant d'événement : l'idempotence repose sur le traitement (statut relu et appliqué une seule fois, sous verrou), pas sur ce journal.
 
+### Facturation
+
+Phase 4, **hypothèses à valider avec le comptable** (`App\Service\Facturation\EmissionFacture`) : factures produites par le site, TVA belge pour toutes les ventes (pas d'OSS), frais de port au taux normal (21 %) sauf commande entièrement sous régime de la marge.
+
+#### `facture`
+
+| Colonne | Type | Contraintes | Note |
+|---|---|---|---|
+| id | INT UNSIGNED | PK | |
+| numero | VARCHAR(20) | NOT NULL, **UNIQUE** | `F2026-000001` (facture), `NC2026-000001` (note de crédit) : continu, sans trou, par série et par année |
+| type | VARCHAR(20) | NOT NULL | enum `TypeFacture` : `facture`, `note_credit` |
+| commande_id | INT UNSIGNED | FK → commande, ON DELETE RESTRICT | une facture par commande, plus ses notes de crédit |
+| facture_origine_id | INT UNSIGNED | FK → facture, NULL, ON DELETE RESTRICT | note de crédit : facture corrigée |
+| remboursement_id | INT UNSIGNED | FK → remboursement, NULL, ON DELETE SET NULL | note de crédit : remboursement documenté |
+| date_emission | DATETIME | NOT NULL | |
+| locale | VARCHAR(5) | NOT NULL | langue du PDF (celle de la commande) |
+| vendeur, client | JSON | NOT NULL | **copies figées** (nom, adresse, n° de TVA, e-mail, IBAN) |
+| lignes | JSON | NOT NULL | lignes figées (référence, libellé, quantité, prix unitaire HTVA, taux ou NULL sous le régime de la marge, totaux, régime) ; frais de port en ligne `PORT` |
+| ventilation_tva | JSON | NOT NULL | `[{taux, base, tva}]`, régime normal seulement |
+| mentions | JSON | NOT NULL | clés de traduction (`mention.marge_occasion`…) imprimées en bas du PDF |
+| total_ht, total_tva, total_ttc | INT UNSIGNED | NOT NULL, CHECK `total_ht + total_tva = total_ttc` | centimes, toujours positifs |
+| payee_at, moyen_paiement | DATETIME, VARCHAR(30) | NULL | « Facture acquittée le … par … » |
+| motif | VARCHAR(255) | NULL | note de crédit |
+
+Une facture émise n'est **jamais modifiée ni supprimée** ; un remboursement donne une note de crédit (intégrale : copie des lignes ; partielle : TVA au prorata de la facture d'origine). Le PDF (dompdf, `templates/factures/facture.html.twig`, traduit en français, anglais et espagnol) est produit à la demande à partir de ces seules données.
+
+#### `sequence_facture`
+
+`(serie, annee)` en clé primaire, `dernier_numero`. Incrémenté sous verrou (`SELECT … FOR UPDATE`) dans la transaction qui émet la facture (`NumerotationFacture`) : une émission annulée rend son numéro.
+
 ## Cycle de vie d'une commande et effets sur le stock
 
 ```mermaid
@@ -371,12 +405,13 @@ Règles :
 - Les transitions passent par **Symfony Workflow** (`config/packages/workflow.yaml`), jamais par une modification directe du statut.
 - Toute écriture sur `stock` se fait dans **une transaction** avec le verrou optimiste, et crée le `mouvement_stock` correspondant. Le panier est vérifié contre la quantité disponible lors de la validation.
 - Commandes `en_attente_paiement` non payées : libérées automatiquement après **30 min**, ou **5 jours ouvrables** quand le client choisit le virement (tâche planifiée `ExpirerCommandes`, toutes les 5 minutes).
+- Transitions `payer` et `payer_apres_expiration` : la facture est émise dans la même transaction (`FactureCommandeListener`) et jointe à l'e-mail « Paiement reçu ».
+- Une commande payée ne s'annule plus par le bouton « Annuler » du back-office : le formulaire « Rembourser » (`RemboursementCommande`) rembourse (total ou partiel), annule si demandé (avant expédition), passe en `remboursee` quand tout est rendu et émet la note de crédit.
 - Paiement confirmé (`App\Service\Paiement\EncaissementPaiement`, sous verrou de la commande) : commande en attente → `payer` ; commande expirée → `payer_apres_expiration` si le stock suffit encore, sinon `rembourser` et remboursement intégral ; commande annulée pour un autre motif → remboursement ; commande déjà payée → paiement en double remboursé ; montant ou devise différents → rien n'est appliqué (anomalie journalisée, niveau `critical`, canal `paiement`).
 - Paiements en ligne restés en cours (notification perdue) : relus chez le prestataire toutes les 15 minutes (`SynchroniserPaiements`), qui relance aussi les remboursements non envoyés.
 
 ## Hors périmètre v1 (évolutions prévues)
 
-- **Factures** : table `facture` avec une numérotation légale continue.
 - **Codes promo**, **avis clients**, **liste de souhaits**.
 
 ## Exposition via l'API (API Platform)
@@ -395,6 +430,8 @@ Les autres ressources seront exposées avec les voters et le Workflow de command
 | Notification Mollie (`POST /api/webhooks/mollie`) | — | publique, sans CSRF : seul l'identifiant est lu, le statut est relu chez Mollie ; 120 par minute et par IP |
 | Paiement simulé (`/api/paiements/simulation/{id}`) | hors production seulement (404 en prod) | idem |
 | Paiements (back-office) | `ROLE_ADMIN` (lecture seule) | « Virement reçu » sur la commande, avec jeton CSRF |
+| Factures PDF (`/api/commandes/{numero}/factures/{facture}.pdf`) | mêmes droits que la commande (client, lien de suivi `?jeton=`, administrateur) ; 404 sinon | — |
+| Factures (back-office) | `ROLE_ADMIN` (lecture seule, PDF) | notes de crédit par « Rembourser » sur la commande |
 | Panier (`/api/panier`) | détenteur du cookie ou client connecté (`PanierVoter`) | idem ; quantités seulement, jamais de prix ; ajout limité à 30 par minute et par IP |
 | Mouvements de stock | `ROLE_ADMIN` | `ROLE_ADMIN` (création seule) |
 | Commandes (back-office) | `ROLE_ADMIN` | statut : `ROLE_ADMIN` via les transitions du Workflow |

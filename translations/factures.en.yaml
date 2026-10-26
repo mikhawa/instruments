@@ -1,0 +1,52 @@
+titre:
+    facture: Invoice
+    note_credit: Credit note
+numero: Number
+date: Date
+commande: Order
+facture_origine: Corrected invoice
+vendeur:
+    tva: VAT no.
+    iban: IBAN
+client: Billed to
+colonne:
+    reference: Ref.
+    designation: Description
+    quantite: Qty
+    prix_unitaire: Unit price excl. VAT
+    taux: VAT
+    total_ht: Total excl. VAT
+    total_ttc: Total incl. VAT
+sans_tva: —
+ventilation:
+    titre: VAT summary
+    taux: Rate
+    base: Taxable amount
+    tva: VAT
+total:
+    marge: Goods under the margin scheme
+    ht: Total excl. VAT
+    tva: Total VAT
+    ttc_facture: Amount due
+    ttc_note_credit: Amount credited
+acquittee: Paid on %date%%moyen%.
+moyen: ' by %moyen%'
+motif: 'Reason: %motif%'
+mention:
+    marge_occasion: Margin scheme – second-hand goods. VAT not deductible by the buyer.
+    marge_antiquite: Margin scheme – collectors' items and antiques. VAT not deductible by the buyer.
+    marge_art: Margin scheme – works of art. VAT not deductible by the buyer.
+pied: Thank you for your trust.
+moyen_paiement:
+    bancontact: 'Bancontact'
+    creditcard: 'credit card'
+    paypal: 'PayPal'
+    applepay: 'Apple Pay'
+    googlepay: 'Google Pay'
+    ideal: 'iDEAL'
+    kbc: 'KBC/CBC'
+    belfius: 'Belfius'
+    banktransfer: 'bank transfer'
+    virement: 'bank transfer'
+    klarna: 'Klarna'
+    simulation: 'simulated payment (test)'

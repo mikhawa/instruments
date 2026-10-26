@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Service\Facturation\Vendeur;
 use App\Service\Paiement\Mollie\MolliePrestataire;
 use App\Service\Paiement\Virement\CoordonneesVirement;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,7 +16,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 /**
  * Contrôle de la configuration du paiement, lancé au déploiement (deploy/activer-release.sh) :
  *  - clé Mollie du mauvais type (test_… en production, live_… en préprod) → échec du déploiement ;
- *  - clé absente ou virement non configuré → avertissement seulement (le site reste utilisable,
+ *  - clé absente, virement ou identité du vendeur (factures) non configurés → avertissement seulement (le site reste utilisable,
  *    le paiement en ligne est indisponible tant que le compte Mollie n'est pas ouvert).
  */
 #[AsCommand(name: 'app:paiement:verifier-configuration', description: 'Vérifie la clé Mollie et le compte du virement')]
@@ -24,6 +25,7 @@ final readonly class VerifierConfigurationPaiementCommand
     public function __construct(
         private MolliePrestataire $mollie,
         private CoordonneesVirement $coordonneesVirement,
+        private Vendeur $vendeur,
         #[Autowire(env: 'MOLLIE_API_KEY')]
         private string $cleMollie,
     ) {
@@ -55,6 +57,10 @@ final readonly class VerifierConfigurationPaiementCommand
             $io->writeln(\sprintf('Virement : %s, %s (à partir de %d €)', $this->coordonneesVirement->getBeneficiaire(), $this->coordonneesVirement->getIbanLisible(), intdiv($this->coordonneesVirement->getSeuil(), 100)));
         } else {
             $io->warning('VIREMENT_IBAN ou VIREMENT_BENEFICIAIRE absent : le virement n\'est pas proposé.');
+        }
+
+        if (!$this->vendeur->isConfigure()) {
+            $io->warning('VENDEUR_NOM, VENDEUR_ADRESSE ou VENDEUR_TVA absent : les factures seraient émises sans l\'identité du vendeur.');
         }
 
         if ([] !== $erreurs) {

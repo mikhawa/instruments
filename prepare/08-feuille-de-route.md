@@ -82,6 +82,9 @@ Modèle Claude conseillé (selon `CLAUDE.md`) : **H** = Haiku, **S** = Sonnet, *
 | 4.7 | Matériaux CITES : tables, affichage, contrôle au checkout | S |
 | 4.8 | Audit de sécurité complet du parcours d'achat | **O** |
 
+> 🟡 **En partie réalisée le 2026-10-26** (`.claude-tasks/opus/028-…`) : 4.1, 4.2, 4.3 et 4.6 (sans la table des taux par pays), **sur des hypothèses à valider avec le comptable** : factures produites par le site, TVA belge partout (pas d'OSS), frais de port à 21 % (sauf commande entièrement sous régime de la marge), note de crédit partielle au prorata, mentions légales du régime de la marge. Pas d'autoliquidation (B2B, phase 6.6) ni de facture d'acompte (6.2).
+> Restent : 4.4 (retours depuis l'espace client), 4.5 (pages légales versionnées), 4.7 (CITES), 4.8 (audit de sécurité).
+
 → **Mise en production de la vente en ligne.**
 
 ## Phase 5 — Fidélisation et confort (v1.1)

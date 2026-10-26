@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\RegimeTva;
 use App\Repository\LigneCommandeRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -61,6 +62,17 @@ class LigneCommande
     #[ORM\Column(options: ['unsigned' => true])]
     private int $totalTtc;
 
+    /** Copie du régime de l'instrument : sous le régime de la marge, total_ht = total_ttc (aucune TVA visible) */
+    #[ORM\Column(length: 20, enumType: RegimeTva::class, options: ['default' => 'normal'])]
+    private RegimeTva $regimeTva = RegimeTva::Normal;
+
+    /**
+     * Régime de la marge : TVA due sur la marge, pour la comptabilité seulement (jamais sur la facture).
+     * NULL : régime normal, ou prix d'achat inconnu.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $tvaMarge = null;
+
     /**
      * Crée une ligne en figeant les données de l'instrument dans la langue de la commande.
      */
@@ -75,12 +87,20 @@ class LigneCommande
         $this->libelle = (string) ($instrument->getTraduction($locale)?->getNom()
             ?? $instrument->getTraduction('fr')?->getNom()
             ?? $instrument->getReference());
-        $this->prixUnitaireHt = (int) $instrument->getPrixHt();
         $this->tauxTva = $instrument->getTauxTva();
         $this->quantite = $quantite;
-        $this->totalHt = $this->prixUnitaireHt * $quantite;
         $this->prixUnitaireTtc = (int) $instrument->getPrixTtc();
         $this->totalTtc = $this->prixUnitaireTtc * $quantite;
+        $this->regimeTva = $instrument->getRegimeTva();
+
+        if ($this->regimeTva->isMarge()) {
+            // Même règle que CalculateurPanier::montantsLigne() : pas de TVA visible
+            $this->prixUnitaireHt = $this->prixUnitaireTtc;
+            $this->tvaMarge = self::tvaSurMarge($this->totalTtc, $instrument->getPrixAchat(), $quantite, $this->tauxTva);
+        } else {
+            $this->prixUnitaireHt = (int) $instrument->getPrixHt();
+        }
+        $this->totalHt = $this->prixUnitaireHt * $quantite;
     }
 
     /**
@@ -159,5 +179,28 @@ class LigneCommande
     public function getTotalTtc(): int
     {
         return $this->totalTtc;
+    }
+
+    public function getRegimeTva(): RegimeTva
+    {
+        return $this->regimeTva;
+    }
+
+    public function getTvaMarge(): ?int
+    {
+        return $this->tvaMarge;
+    }
+
+    /**
+     * TVA comprise dans la marge : (vente − achat) × taux / (1 + taux), nulle si la marge est négative.
+     */
+    public static function tvaSurMarge(int $totalVente, ?int $prixAchatUnitaire, int $quantite, int $tauxTva): ?int
+    {
+        if (null === $prixAchatUnitaire) {
+            return null;
+        }
+        $marge = max(0, $totalVente - $prixAchatUnitaire * $quantite);
+
+        return (int) round($marge * $tauxTva / (10000 + $tauxTva));
     }
 }

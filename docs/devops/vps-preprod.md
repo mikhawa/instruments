@@ -199,7 +199,16 @@ MOLLIE_API_KEY=<clé du tableau de bord Mollie, Développeurs → Clés API>
 VIREMENT_IBAN=<IBAN du compte professionnel>
 VIREMENT_BIC=<BIC>
 VIREMENT_BENEFICIAIRE='<raison sociale>'
+# Identité imprimée sur les factures (adresse : lignes séparées par « | »)
+VENDEUR_NOM='<raison sociale>'
+VENDEUR_ADRESSE='<rue et numéro>|<code postal> <ville>|Belgique'
+VENDEUR_TVA=BE<numéro d'entreprise>
+VENDEUR_EMAIL=<e-mail de contact>
 ```
+
+**Factures.** Générées en PDF par dompdf (100 % PHP) : les extensions `dom` et `mbstring` de lsphp83
+sont nécessaires (`/usr/local/lsws/lsphp83/bin/php -m`). Une facture émise n'est jamais modifiée :
+l'identité du vendeur y est copiée à l'émission, la vérifier **avant** la première vente réelle.
 
 **Paiement.** Mollie envoie ses notifications à `DEFAULT_URI` + `/api/webhooks/mollie` : cette adresse
 doit être publique et en HTTPS (aucune protection par mot de passe devant le site de préprod, ou une

@@ -1,0 +1,29 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+
+{% block page_title %}Rembourser la commande {{ commande.numero }}{% endblock %}
+{% block content_title %}Rembourser la commande {{ commande.numero }}{% endblock %}
+
+{% block main %}
+    <div class="row">
+        <div class="col-lg-7">
+            <p>
+                Total de la commande : <strong>{{ commande.totalTtc|prix }}</strong> —
+                encore remboursable : <strong>{{ remboursable|prix }}</strong>.
+            </p>
+            <p class="text-muted">
+                Le remboursement est fait sur le moyen de paiement utilisé (un virement se rembourse à la main) ;
+                une note de crédit est émise si la commande a été facturée. Le client est prévenu par e-mail.
+            </p>
+
+            {{ form_start(formulaire) }}
+                {{ form_row(formulaire.montant) }}
+                {{ form_row(formulaire.motif) }}
+                {% if formulaire.annuler is defined %}
+                    {{ form_row(formulaire.annuler) }}
+                {% endif %}
+                <button type="submit" class="btn btn-danger">Rembourser</button>
+                <a href="{{ urlRetour }}" class="btn btn-link">Retour à la commande</a>
+            {{ form_end(formulaire) }}
+        </div>
+    </div>
+{% endblock %}

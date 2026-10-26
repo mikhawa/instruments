@@ -67,8 +67,9 @@ final readonly class CalculateurPanier
      */
     public function montantsLigne(Instrument $instrument, int $quantite): array
     {
-        $ht = (int) $instrument->getPrixHt() * $quantite;
         $ttc = $this->prixTtc((int) $instrument->getPrixHt(), $instrument->getTauxTva()) * $quantite;
+        // Régime de la marge : aucune TVA visible pour le client (elle porte sur la marge, voir LigneCommande)
+        $ht = $instrument->getRegimeTva()->isMarge() ? $ttc : (int) $instrument->getPrixHt() * $quantite;
 
         return ['ht' => $ht, 'tva' => $ttc - $ht, 'ttc' => $ttc];
     }

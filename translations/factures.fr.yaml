@@ -1,0 +1,53 @@
+# Libellés des factures et notes de crédit (PDF)
+titre:
+    facture: Facture
+    note_credit: Note de crédit
+numero: Numéro
+date: Date
+commande: Commande
+facture_origine: Facture corrigée
+vendeur:
+    tva: N° TVA
+    iban: IBAN
+client: Facturé à
+colonne:
+    reference: Réf.
+    designation: Désignation
+    quantite: Qté
+    prix_unitaire: Prix unitaire HTVA
+    taux: TVA
+    total_ht: Total HTVA
+    total_ttc: Total TVAC
+sans_tva: —
+ventilation:
+    titre: Récapitulatif de la TVA
+    taux: Taux
+    base: Base HTVA
+    tva: TVA
+total:
+    marge: Biens sous régime particulier
+    ht: Total HTVA
+    tva: Total TVA
+    ttc_facture: Total à payer
+    ttc_note_credit: Montant crédité
+acquittee: Facture acquittée le %date%%moyen%.
+moyen: ' par %moyen%'
+motif: 'Motif : %motif%'
+mention:
+    marge_occasion: Régime particulier – biens d'occasion. TVA non déductible par l'acheteur (article 58, § 4, du Code de la TVA).
+    marge_antiquite: Régime particulier – objets de collection et d'antiquité. TVA non déductible par l'acheteur (article 58, § 4, du Code de la TVA).
+    marge_art: Régime particulier – objets d'art. TVA non déductible par l'acheteur (article 58, § 4, du Code de la TVA).
+pied: Merci pour votre confiance.
+moyen_paiement:
+    bancontact: 'Bancontact'
+    creditcard: 'carte bancaire'
+    paypal: 'PayPal'
+    applepay: 'Apple Pay'
+    googlepay: 'Google Pay'
+    ideal: 'iDEAL'
+    kbc: 'KBC/CBC'
+    belfius: 'Belfius'
+    banktransfer: 'virement'
+    virement: 'virement'
+    klarna: 'Klarna'
+    simulation: 'paiement simulé (test)'

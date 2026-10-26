@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\Post;
 use App\Entity\Trait\HorodatageTrait;
 use App\Enum\ClasseLivraison;
 use App\Enum\EtatInstrument;
+use App\Enum\RegimeTva;
 use App\Repository\InstrumentRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -22,6 +23,7 @@ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * Instrument du catalogue (données non traduisibles).
@@ -113,6 +115,19 @@ class Instrument
     #[Groups(['instrument:read', 'instrument:write'])]
     #[Assert\Range(min: 0, max: 10000)]
     private int $tauxTva = 2100;
+
+    /** Régime de la marge : TVA sur la marge seulement, invisible sur la facture */
+    #[ORM\Column(length: 20, enumType: RegimeTva::class, options: ['default' => 'normal'])]
+    #[Groups(['instrument:read', 'instrument:write'])]
+    private RegimeTva $regimeTva = RegimeTva::Normal;
+
+    /**
+     * Prix d'achat TTC en centimes (régime de la marge : base du calcul de la TVA due).
+     * Réservé au back-office : jamais exposé par l'API (aucun groupe de sérialisation).
+     */
+    #[ORM\Column(nullable: true, options: ['unsigned' => true])]
+    #[Assert\PositiveOrZero]
+    private ?int $prixAchat = null;
 
     #[ORM\Column(nullable: true, options: ['unsigned' => true])]
     #[Groups(['instrument:read', 'instrument:write'])]
@@ -428,5 +443,42 @@ class Instrument
     public function getStock(): ?Stock
     {
         return $this->stock;
+    }
+
+    public function getRegimeTva(): RegimeTva
+    {
+        return $this->regimeTva;
+    }
+
+    public function setRegimeTva(RegimeTva $regimeTva): static
+    {
+        $this->regimeTva = $regimeTva;
+
+        return $this;
+    }
+
+    public function getPrixAchat(): ?int
+    {
+        return $this->prixAchat;
+    }
+
+    public function setPrixAchat(?int $prixAchat): static
+    {
+        $this->prixAchat = $prixAchat;
+
+        return $this;
+    }
+
+    /**
+     * Sous le régime de la marge, le prix d'achat est indispensable au calcul de la TVA due.
+     */
+    #[Assert\Callback]
+    public function validerRegimeTva(ExecutionContextInterface $contexte): void
+    {
+        if ($this->regimeTva->isMarge() && null === $this->prixAchat) {
+            $contexte->buildViolation('Le prix d\'achat est obligatoire sous le régime de la marge.')
+                ->atPath('prixAchat')
+                ->addViolation();
+        }
     }
 }

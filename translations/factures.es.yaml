@@ -1,0 +1,52 @@
+titre:
+    facture: Factura
+    note_credit: Nota de crédito
+numero: Número
+date: Fecha
+commande: Pedido
+facture_origine: Factura rectificada
+vendeur:
+    tva: N.º IVA
+    iban: IBAN
+client: Facturado a
+colonne:
+    reference: Ref.
+    designation: Descripción
+    quantite: Cant.
+    prix_unitaire: Precio unitario sin IVA
+    taux: IVA
+    total_ht: Total sin IVA
+    total_ttc: Total con IVA
+sans_tva: —
+ventilation:
+    titre: Resumen del IVA
+    taux: Tipo
+    base: Base imponible
+    tva: IVA
+total:
+    marge: Bienes en régimen especial
+    ht: Total sin IVA
+    tva: Total IVA
+    ttc_facture: Total a pagar
+    ttc_note_credit: Importe abonado
+acquittee: Pagada el %date%%moyen%.
+moyen: ' mediante %moyen%'
+motif: 'Motivo: %motif%'
+mention:
+    marge_occasion: Régimen especial – bienes usados. IVA no deducible por el comprador.
+    marge_antiquite: Régimen especial – objetos de colección y antigüedades. IVA no deducible por el comprador.
+    marge_art: Régimen especial – objetos de arte. IVA no deducible por el comprador.
+pied: Gracias por su confianza.
+moyen_paiement:
+    bancontact: 'Bancontact'
+    creditcard: 'tarjeta bancaria'
+    paypal: 'PayPal'
+    applepay: 'Apple Pay'
+    googlepay: 'Google Pay'
+    ideal: 'iDEAL'
+    kbc: 'KBC/CBC'
+    belfius: 'Belfius'
+    banktransfer: 'transferencia'
+    virement: 'transferencia'
+    klarna: 'Klarna'
+    simulation: 'pago simulado (prueba)'
